@@ -1,3 +1,19 @@
+import { unmountComponentAtNode } from "react-dom";
+
+let container = null;
+beforeEach(() => {
+  // setup a DOM element as a render target
+  container = document.createElement("div");
+  document.body.appendChild(container);
+});
+
+afterEach(() => {
+  // cleanup on exiting
+  unmountComponentAtNode(container);
+  container.remove();
+  container = null;
+});
+
 export async function popupTest(test) {
   console.log("TEST popup");
   let {assertEquals, loadPage} = test;

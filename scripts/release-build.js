@@ -23,7 +23,7 @@ fs.copySync("addon", target, {
   filter(path) {
     let file = path.replace("\\", "/");
     return !file.startsWith("addon/test-") // Skip the test framework
-      && !file.endsWith("-test.js") // Skip individual tests
+      && !file.endsWith(".test.js") // Skip individual tests
       // Skip files in .gitignore
       && !file.endsWith(".zip")
       && !file.endsWith(".xpi")

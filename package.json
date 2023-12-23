@@ -1,6 +1,7 @@
 {
   "name": "salesforce-inspector",
   "scripts": {
+    "test": "jest",
     "eslint": "eslint .",
     "firefox-dev-build": "node scripts/dev-build.js firefox",
     "chrome-dev-build": "node scripts/dev-build.js chrome",
@@ -10,6 +11,7 @@
   "devDependencies": {
     "eslint": "^6.3.0",
     "fs-extra": "2.0.0",
+    "jest": "^29.7.0",
     "replace-in-file": "2.2.2",
     "zip-dir": "2.0.0"
   }
