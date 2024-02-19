@@ -385,7 +385,8 @@ class Model {
     //kind of tokenizer/lexer by advancing step by step
     //STEP 1 FIND
     beforeSel = beforeSel.trim();
-    if (!beforeSel || !beforeSel.toUpperCase().startsWith("FIND")) {
+    let nextWord = this.nextToken(beforeSel);
+    if (!nextWord || !nextWord.toUpperCase() == "FIND") {
       vm.autocompleteResults = {
         sobjectName: "",
         title: "Suggestions:",
@@ -435,7 +436,8 @@ class Model {
       {value: "LIMIT", title: "LIMIT", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""}];
 
     //STEP 3 check if IN [ALL FIELDS|NAME FIELDS|EMAIL FIELDS|PHONE FIELDS|SIDEBAR FIELDS
-    if (beforeSel.toUpperCase().startsWith("IN")) {
+    nextWord = this.nextToken(beforeSel);
+    if (nextWord.toUpperCase() == "IN") {
       beforeSel = beforeSel.substring(2);
       beforeSel = beforeSel.trim();
       if (!beforeSel.toUpperCase().startsWith("ALL FIELDS")
@@ -458,7 +460,8 @@ class Model {
       beforeSel = beforeSel.trim();
     }
     //STEP 4  RETURNING objectType([[field] [ toLabel(fields)] [convertCurrency(Amount)] [FORMAT()], ] ORDER BY fieldOrderByList LIMIT number_of_rows_to_return OFFSET number_of_rows_to_skip)],...
-    if (beforeSel.toUpperCase().startsWith("RETURNING")) {
+    nextWord = this.nextToken(beforeSel);
+    if (nextWord.toUpperCase() == "RETURNING") {
       beforeSel = beforeSel.substring(9);
       beforeSel = beforeSel.trim();
       let matchObjName = beforeSel.match(/^([a-zA-Z0-9_-]+)/i);
@@ -494,7 +497,8 @@ class Model {
         return;
       }
     }
-    if (beforeSel.toUpperCase().startsWith("WITH")) {
+    nextWord = this.nextToken(beforeSel);
+    if (nextWord.toUpperCase() == "WITH") {
       //TODO detailed all case of intellisens around WITH
       vm.autocompleteResults = {
         sobjectName: "",
@@ -612,6 +616,80 @@ class Model {
     };
   }
 
+  autocompleteRelation(vm, ctrlSpace, sobjectName, suggestRelation, relationName) {
+    let useToolingApi = vm.queryTooling;
+    let selStart = vm.queryInput.selectionStart;
+    let selEnd = vm.queryInput.selectionEnd;
+    let query = vm.queryInput.value;
+    let searchTerm = selStart != selEnd
+      ? query.substring(selStart, selEnd)
+      : query.substring(0, selStart).match(/[a-zA-Z0-9_]*$/)[0];
+    selStart = selEnd - searchTerm.length;
+
+    let {sobjectStatus, sobjectDescribe} = vm.describeInfo.describeSobject(useToolingApi, sobjectName);
+    if (!sobjectDescribe) {
+      switch (sobjectStatus) {
+        case "loading":
+          vm.autocompleteResults = {
+            sobjectName,
+            title: "Loading " + sobjectName + " metadata...",
+            results: []
+          };
+          return "";
+        case "loadfailed":
+          vm.autocompleteResults = {
+            sobjectName,
+            title: "Loading " + sobjectName + " metadata failed.",
+            results: [{value: "Retry", title: "Retry"}]
+          };
+          vm.autocompleteClick = vm.autocompleteReload.bind(vm);
+          return "";
+        case "notfound":
+          vm.autocompleteResults = {
+            sobjectName,
+            title: "Unknown object: " + sobjectName,
+            results: []
+          };
+          return "";
+        default:
+          vm.autocompleteResults = {
+            sobjectName,
+            title: "Unexpected error for object: " + sobjectName + ": " + sobjectStatus,
+            results: []
+          };
+          return "";
+      }
+    }
+    let contextSobjectDescribes = new Enumerable([sobjectDescribe]);
+    let subObjectName = "";
+    let ar = contextSobjectDescribes
+      .flatMap(sobjectDescribe => sobjectDescribe.childRelationships)
+      .filter(relation => relation.relationshipName && relation.relationshipName.toLowerCase().startsWith(relationName.toLowerCase()))
+      .map(rel => ({value: rel.relationshipName, title: rel.relationshipName + "(" + rel.childSObject + "." + rel.field + ")", suffix: " ", rank: 1, autocompleteType: "object", dataType: ""}))
+      .toArray()
+      .sort(this.resultsSort(searchTerm));
+    if (ctrlSpace) {
+      if (ar.length > 0) {
+        subObjectName = ar[0];
+        vm.queryInput.focus();
+        vm.queryInput.setRangeText(ar[0], selStart, selEnd, "end");
+      }
+      vm.queryAutocompleteHandler();
+      return subObjectName;
+    }
+    if (suggestRelation) {
+      vm.autocompleteResults = {
+        sobjectName,
+        title: "Relations suggestions:",
+        results: ar
+      };
+    } else {
+      subObjectName = ar
+        .filter(relation => relation.relationshipName && relation.relationshipName.toLowerCase() == relationName.toLowerCase())
+        .map(rel => rel.childSObject).shift();
+    }
+    return subObjectName;
+  }
   autocompleteField(vm, ctrlSpace, sobjectName, isAfterWhere) {
     let useToolingApi = vm.queryTooling;
     let selStart = vm.queryInput.selectionStart;
@@ -950,7 +1028,164 @@ class Model {
       return;
     }
   }
+  nextToken(src) {
+    if (!src) {
+      return "";
+    }
+    let regex = /^\s*([a-zA-Z0-9_-]+|[^a-zA-Z0-9\s_-])/i;
+    let match = regex.exec(src);
+    if (match !== null) {
+      return match[1];
+    }
+    console.log("no more token");
+    return "";
+  }
 
+  parseQuery(beforeSelection, sobjectName, vm, ctrlSpace, pos, parentSObjectName) {
+    let selStart = vm.queryInput.selectionStart;
+    let query = vm.queryInput.value;
+    let selEnd = vm.queryInput.selectionEnd;
+    // Find the token we want to autocomplete. This is the selected text, or the last word before the cursor.
+    let searchTerm = selStart != selEnd
+      ? query.substring(selStart, selEnd)
+      : query.substring(0, selStart).match(/[a-zA-Z0-9_]*$/)[0];
+    selStart = selEnd - searchTerm.length;
+    //STEP 1 SELECT
+    let beforeSel = beforeSelection.substring(pos);
+    let nextWord = this.nextToken(beforeSel);
+    if (!beforeSel || !nextWord.toUpperCase() == "SELECT") {
+      vm.autocompleteResults = {
+        sobjectName: "",
+        title: "Suggestions:",
+        results: [{value: "SELECT", title: "SELECT", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""}]
+      };
+      return;
+    }
+    pos = beforeSelection.indexOf(nextWord, pos) + nextWord.length;
+    beforeSel = beforeSelection.substring(pos);
+    nextWord = this.nextToken(beforeSel);
+    //STEP 2 [[field | subquery],]
+    while (beforeSel) {
+      if (nextWord.startsWith("(")) {
+        pos = beforeSelection.indexOf("(", pos) + 1;
+        beforeSel = beforeSelection.substring(pos);
+        let lastpos = query.indexOf(")", pos);
+        //child
+        if (lastpos != -1 && selStart < lastpos) {
+          let querySplitted = query.substring(pos, lastpos).split(/\sfrom\s/i);
+          if (querySplitted.length < 2) {
+            vm.autocompleteResults = {
+              sobjectName: "",
+              title: "Suggestions:",
+              results: [{value: "FROM", title: "FROM", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""}]
+            };
+            return;
+          }
+          //last from object
+          let relationName = this.nextToken(querySplitted[querySplitted.length - 1]);
+          let subObjectName = this.autocompleteRelation(vm, ctrlSpace, sobjectName, false, relationName);
+
+          this.parseQuery(beforeSelection, subObjectName, vm, ctrlSpace, pos, sobjectName);
+          return;
+        } else if (lastpos != -1) { //skip sub query
+          pos = lastpos + 1;
+          beforeSel = beforeSelection.substring(pos);
+        } else {
+          vm.autocompleteResults = {
+            sobjectName: "",
+            title: "Suggestions:",
+            results: [{value: ")", title: ")", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""}]
+          };
+          return;
+        }
+        nextWord = this.nextToken(beforeSel);
+        continue;
+      }
+      if (!nextWord) {
+        this.autocompleteField(vm, ctrlSpace, sobjectName, false);
+        return;
+      }
+      if (nextWord.toUpperCase() == "FROM") {
+        break;
+      }
+      pos = beforeSelection.indexOf(nextWord, pos) + nextWord.length;
+      beforeSel = beforeSelection.substring(pos);
+      nextWord = this.nextToken(beforeSel);
+      //function
+      if (nextWord == "(") {
+        pos = beforeSelection.indexOf(nextWord, pos) + 1;
+        let lastpos = beforeSelection.indexOf(")", pos);
+        if (lastpos == -1 || selStart < lastpos) {
+          this.autocompleteField(vm, ctrlSpace, sobjectName, false);
+          return;
+        }
+        pos = lastpos;
+        beforeSel = beforeSelection.substring(pos);
+        nextWord = this.nextToken(beforeSel);
+      }
+      //comma
+      if (nextWord == ",") {
+        pos = beforeSelection.indexOf(nextWord, pos) + 1;
+        beforeSel = beforeSelection.substring(pos);
+        nextWord = this.nextToken(beforeSel);
+      }
+    }
+
+    if (!nextWord) {
+      if (sobjectName) {
+        this.autocompleteField(vm, ctrlSpace, sobjectName, false);
+        return;
+      } else {
+        vm.autocompleteResults = {
+          sobjectName: "",
+          title: "Suggestions:",
+          results: [{value: "FROM", title: "FROM", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""}]
+        };
+        return;
+      }
+    }
+
+    pos = beforeSelection.indexOf(nextWord, pos) + nextWord.length;
+    beforeSel = beforeSelection.substring(pos);
+    nextWord = this.nextToken(beforeSel);
+
+    //STEP 3 FROM Account
+    //sobjectName is parsed previously for relation and for parent query so skip it
+    //sobjectName = nextWord;
+
+    pos = beforeSelection.indexOf(nextWord, pos) + nextWord.length;
+    beforeSel = beforeSelection.substring(pos);
+    nextWord = this.nextToken(beforeSel);
+    if (!nextWord) {
+      if (parentSObjectName) {
+        this.autocompleteRelation(vm, ctrlSpace, parentSObjectName, true, searchTerm);
+      } else {
+        this.autocompleteObject(vm, false);
+      }
+      return;
+    }
+    //STEP 4 WHERE
+    if (nextWord.toUpperCase() != "WHERE"
+      && nextWord.toUpperCase() != "GROUP"
+      && nextWord.toUpperCase() != "ORDER"
+      && nextWord.toUpperCase() != "LIMIT"
+      && nextWord.toUpperCase() != "OFFSET") {
+      vm.autocompleteResults = {
+        sobjectName: "",
+        title: "Suggestions:",
+        results: [{value: "WHERE", title: "WHERE", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""},
+          {value: "GROUP BY", title: "GROUP BY", suffix: " ", rank: 2, autocompleteType: "keyword", dataType: ""},
+          {value: "ORDER BY", title: "ORDER BY", suffix: " ", rank: 3, autocompleteType: "keyword", dataType: ""},
+          {value: "LIMIT", title: "LIMIT", suffix: " ", rank: 4, autocompleteType: "keyword", dataType: ""},
+          {value: "OFFSET", title: "OFFSET", suffix: " ", rank: 5, autocompleteType: "keyword", dataType: ""}]
+      };
+      return;
+    }
+    pos = beforeSelection.indexOf(nextWord, pos) + nextWord.length;
+    beforeSel = beforeSelection.substring(pos);
+    nextWord = this.nextToken(beforeSel);
+    this.autocompleteField(vm, ctrlSpace, sobjectName, true);
+  }
   /**
    * SOQL query autocomplete handling.
    * Put caret at the end of a word or select some text to autocomplete it.
@@ -962,6 +1197,17 @@ class Model {
    * Autocompletes any textual field value by performing a Salesforce API query when Ctrl+Space is pressed.
    * Inserts all autocomplete field suggestions when Ctrl+Space is pressed.
    * Supports subqueries in where clauses, but not in select clauses.
+   * SELECT [field|subquery|function([field|STANDARD|...])][...]
+   *  [TYPEOF typeOfField whenExpression[...] elseExpression END][...]
+   *  FROM objectType[,...]
+   *    [USING SCOPE filterScope]
+   *  [WHERE conditionExpression]
+   *  [WITH [DATA CATEGORY] filteringExpression]
+   *  [GROUP BY {fieldGroupByList|ROLLUP (fieldSubtotalGroupByList)|CUBE (fieldSubtotalGroupByList)}
+   *    [HAVING havingConditionExpression] ]
+   *  [ORDER BY fieldOrderByList {ASC|DESC} [NULLS {FIRST|LAST}] ]
+   *  [LIMIT numberOfRowsToReturn]
+   *  [OFFSET numberOfRowsToSkip]
    */
   queryAutocompleteHandler(e = {}) {
     if (this.isSearchMode()) {
@@ -974,7 +1220,7 @@ class Model {
     let selStart = vm.queryInput.selectionStart;
     let selEnd = vm.queryInput.selectionEnd;
     let ctrlSpace = e.ctrlSpace;
-
+    let beforeSel = query.substring(0, selStart);
     // Skip the calculation when no change is made. This improves performance and prevents async operations (Ctrl+Space) from being canceled when they should not be.
     let newAutocompleteState = [useToolingApi, query, selStart, selEnd].join("$");
     if (newAutocompleteState == vm.autocompleteState && !ctrlSpace && !e.newDescribe) {
@@ -1001,7 +1247,7 @@ class Model {
       }
       vm.queryAutocompleteHandler();
     };
-
+/*
     // Find the token we want to autocomplete. This is the selected text, or the last word before the cursor.
     let searchTerm = selStart != selEnd
       ? query.substring(selStart, selEnd)
@@ -1047,6 +1293,27 @@ class Model {
       }
     }
     this.autocompleteField(vm, ctrlSpace, sobjectName, isAfterFrom);
+*/
+    let querySplitted = query.split(/\sfrom\s/i);
+    if (querySplitted.length < 2) {
+      vm.autocompleteResults = {
+        sobjectName: "",
+        title: "Suggestions:",
+        results: [{value: "FROM", title: "FROM", suffix: " ", rank: 1, autocompleteType: "keyword", dataType: ""}]
+      };
+      return;
+    }
+    //last from object
+    let sobjectName = this.nextToken(querySplitted[querySplitted.length - 1]);
+    //TODO use generated tokenizer lexer with https://nearley.js.org/
+    let pos = 0;
+    this.parseQuery(beforeSel, sobjectName, vm, ctrlSpace, pos, null);
+    //TODO ONLY FOR MAIN QUERY
+    //[GROUP BY {fieldGroupByList|ROLLUP (fieldSubtotalGroupByList)|CUBE (fieldSubtotalGroupByList)}
+    //    [HAVING havingConditionExpression] ]
+    //  [ORDER BY fieldOrderByList {ASC|DESC} [NULLS {FIRST|LAST}] ]
+    //  [LIMIT numberOfRowsToReturn]
+    //  [OFFSET numberOfRowsToSkip]
   }
   doExport() {
     let vm = this; // eslint-disable-line consistent-this
@@ -1443,6 +1710,12 @@ class App extends React.Component {
       if (e.ctrlKey && e.key == " ") {
         e.preventDefault();
         model.queryAutocompleteHandler({ctrlSpace: true});
+        model.didUpdate();
+      }
+      if (e.key == "(") {
+        e.preventDefault();
+        model.autocompleteClick({value: "(", suffix: ")"});
+        //model.queryAutocompleteHandler({ctrlSpace: false});
         model.didUpdate();
       }
     });
