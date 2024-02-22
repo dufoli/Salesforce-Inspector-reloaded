@@ -591,7 +591,7 @@ class Model {
     }
     if (ctrlSpace) {
       let ar = new Enumerable(globalDescribe.sobjects)
-        .filter(sobjectDescribe => sobjectDescribe.name.toLowerCase().includes(searchTerm.toLowerCase()) || sobjectDescribe.label.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(sobjectDescribe => sobjectDescribe.queryable && (sobjectDescribe.name.toLowerCase().includes(searchTerm.toLowerCase()) || sobjectDescribe.label.toLowerCase().includes(searchTerm.toLowerCase())))
         .map(sobjectDescribe => sobjectDescribe.name)
         .toArray();
       if (ar.length > 0) {
@@ -605,7 +605,7 @@ class Model {
       sobjectName: "",
       title: "Objects suggestions:",
       results: new Enumerable(globalDescribe.sobjects)
-        .filter(sobjectDescribe => sobjectDescribe.name.toLowerCase().includes(searchTerm.toLowerCase()) || sobjectDescribe.label.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(sobjectDescribe => sobjectDescribe.queryable && (sobjectDescribe.name.toLowerCase().includes(searchTerm.toLowerCase()) || sobjectDescribe.label.toLowerCase().includes(searchTerm.toLowerCase())))
         .map(sobjectDescribe => ({value: sobjectDescribe.name, title: sobjectDescribe.label, suffix: " ", rank: 1, autocompleteType: "object", dataType: ""}))
         .toArray()
         .sort(this.resultsSort(searchTerm))
@@ -998,7 +998,7 @@ class Model {
     let contextSobjectDescribes = new Enumerable([sobjectDescribe]);
     let ar = contextSobjectDescribes
       .flatMap(sobjectDescribe => sobjectDescribe.childRelationships)
-      .filter(relation => relation.relationshipName && (ctx.fromObject || relation.relationshipName.toLowerCase().startsWith(ctx.fromObject.toLowerCase())))
+      .filter(relation => relation.relationshipName && (!ctx.fromObject || relation.relationshipName.toLowerCase().startsWith(ctx.fromObject.toLowerCase())))
       .map(rel => ({value: rel.relationshipName, title: rel.relationshipName + "(" + rel.childSObject + "." + rel.field + ")", suffix: " ", rank: 1, autocompleteType: "object", dataType: rel.childSObject}))
       .toArray()
       .sort(this.resultsSort(searchTerm));
@@ -1020,7 +1020,7 @@ class Model {
       };
     } else {
       ctx.sobjectName = ar
-        .filter(relation => relation.value && (ctx.fromObject || relation.value.toLowerCase() == ctx.fromObject.toLowerCase()))
+        .filter(relation => relation.value && (ctx.fromObject && relation.value.toLowerCase() == ctx.fromObject.toLowerCase()))
         .map(rel => rel.dataType).shift();
     }
     return;
@@ -1083,29 +1083,42 @@ class Model {
       : query.substring(0, selStart).match(/[a-zA-Z0-9_]*$/)[0];
     selStart = selEnd - searchTerm.length;
 
-    // If we are just after the last "from" keyword, autocomplete the sobject name
-    if (query.substring(0, selStart).match(/(^|\s)from\s*$/i) && !query.substring(selStart).match(/(^|\s)from\s*/i)) {
-      this.autocompleteObject(vm, false);
-      return;
-    }
-
     let sobjectName, isAfterFrom;
     // Find out what sobject we are querying, by using the word after the "from" keyword.
-    // Assuming no subqueries in the select clause, we should find the correct sobjectName. There should be only one "from" keyword, and strings (which may contain the word "from") are only allowed after the real "from" keyword.
     let fromRegEx = /(^|\s)from\s+([a-z0-9_]*)/gi;
     let fromKeywordMatch;
-    // to get last from
+    //skip subquery by checking that we have same number of open and close parenthesis before
     while ((fromKeywordMatch = fromRegEx.exec(query)) !== null) {
-      sobjectName = fromKeywordMatch[2];
-      isAfterFrom = selStart > fromKeywordMatch.index + 1;
+      let beforeFrom = query.substring(0, fromKeywordMatch.index);
+      let openParenthesisSplit = beforeFrom.split("(");
+      if (sobjectName //in sub query after from
+        && isAfterFrom
+        && selStart > beforeFrom.toLowerCase().lastIndexOf("select") // after start of subquery
+        && selStart <= fromKeywordMatch.index + query.substring(fromKeywordMatch.index).indexOf(")")) {
+        sobjectName = fromKeywordMatch[2];
+        isAfterFrom = selStart > fromKeywordMatch.index + 1;
+        break;
+      }
+      if (!beforeFrom
+        || (openParenthesisSplit.length == beforeFrom.split(")").length) // same number of open and close parenthesis = no more in subquery
+        || !openParenthesisSplit[openParenthesisSplit.length - 1].trim().toLowerCase().startsWith("select")) { // not a subquery
+        sobjectName = fromKeywordMatch[2];
+        isAfterFrom = selStart > fromKeywordMatch.index + 1;
+      }
     }
-    if (!sobjectName) {
-      // We still want to find the from keyword if the user is typing just before the keyword, and there is no space.
-      fromRegEx = /^from\s+([a-z0-9_]*)/gsi;
-      // to get last from
-      while ((fromKeywordMatch = fromRegEx.exec(query.substring(selEnd))) !== null) {
-        sobjectName = fromKeywordMatch[1];
-        isAfterFrom = false;
+    // If we are just after the last "from" keyword, autocomplete the sobject name
+    fromRegEx = /(^|\s)from\s*$/gi;
+    fromKeywordMatch = fromRegEx.exec(query.substring(0, selStart));
+    if (fromKeywordMatch) {
+      let beforeFrom = query.substring(0, fromKeywordMatch.index);
+      let openParenthesisSplit = beforeFrom.split("(");
+      //not in subquery before main from
+      if (!beforeFrom //nothing before
+        || (beforeFrom.split("(").length == beforeFrom.split(")").length) //not in subquery before main from
+        || !openParenthesisSplit[openParenthesisSplit.length - 1].trim().toLocaleLowerCase().startsWith("select")
+        || isAfterFrom) { // after main from => Id IN (SELECT Id...)
+        this.autocompleteObject(vm, false);
+        return;
       }
     }
     if (!sobjectName) {
@@ -1117,7 +1130,7 @@ class Model {
       return;
     }
     let ctx = {vm, ctrlSpace, query, selStart, sobjectName, isAfterFrom};
-    if (!this.parseSubQuery(ctx)) {
+    if (isAfterFrom || !this.parseSubQuery(ctx)) {
       this.autocompleteField(vm, ctrlSpace, ctx.sobjectName, ctx.isAfterFrom);
     }
   }
