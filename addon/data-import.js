@@ -14,10 +14,11 @@ class Model {
     this.allApis = [
       {value: "Enterprise", label: "Enterprise (default)"},
       {value: "Tooling", label: "Tooling"},
-      {value: "Metadata", label: "Metadata"}
+      {value: "Metadata", label: "Metadata"},
+      {value: "Composite", label: "Composite tree"}
     ];
     this.allActions = [
-      {value: "create", label: "Insert", supportedApis: ["Enterprise", "Tooling"]},
+      {value: "create", label: "Insert", supportedApis: ["Enterprise", "Tooling", "Composite"]},
       {value: "update", label: "Update", supportedApis: ["Enterprise", "Tooling"]},
       {value: "upsert", label: "Upsert", supportedApis: ["Enterprise", "Tooling"]},
       {value: "delete", label: "Delete", supportedApis: ["Enterprise", "Tooling"]},
@@ -839,6 +840,10 @@ class Model {
         return null;
       }
     });
+    if (this.apiType == "Composite") {
+      this.batchRestApi(data, header, format);
+      return;
+    }
     let batchRows = [];
     let importArgs = {};
     if (importAction == "upsert") {
@@ -1051,7 +1056,141 @@ class Model {
       this.isProcessingQueue = false;
     }));
   }
+  batchRestApi(data, header, format){
+    let {statusColumnIndex, resultIdColumnIndex, actionColumnIndex, errorColumnIndex, importAction, sobjectType, inputIdColumnIndex} = this.importState;
+    let batchRows = [];
+    let importArgs = {records: []};
+    let batchSize = +this.batchSize;
+    if (!(batchSize > 0)) { // This also handles NaN
+      return;
+    }
+    let i = 1;
+    for (let row of data) {
+      if (batchRows.length == batchSize) {
+        break;
+      }
+      if (row[statusColumnIndex] != "Queued") {
+        continue;
+      }
+      batchRows.push(row);
+      row[statusColumnIndex] = "Processing";
 
+      let sobject = {};
+      sobject["attributes"] = {"type": sobjectType, "referenceId": "ref" + i};
+
+      let fieldTypes = {};
+      let selectedObjectFields = this.describeInfo.describeSobject(this.apiType == "Tooling", sobjectType).sobjectDescribe?.fields || [];
+      selectedObjectFields.forEach(field => {
+        fieldTypes[field.name] = field.type;
+      });
+
+      for (let c = 0; c < row.length; c++) {
+        if (header[c][0] != "_") {
+          let columnName = header[c].split(".", 2);
+          if (columnName.length == 1) { // Our validation ensures there are always one or three elements in the array
+            let [fieldName] = columnName;
+            if ((fieldTypes[fieldName] == "date")
+                && format[c] != "yyyy-MM-dd") {
+              sobject[fieldName] = this.convertDate(row[c], format[c]);
+            } else if ((fieldTypes[fieldName] == "datetime")
+                && format[c] != "yyyy-MM-ddTHH:mm:ss.SSS+/-HH:mm"
+                && format[c] != "yyyy-MM-ddTHH:mm:ss.SSSZ") {
+              sobject[fieldName] = this.convertDatetime(row[c], format[c]);
+            } else {
+              sobject[fieldName] = row[c];
+            }
+          } else {
+            let [fieldName, subFieldName] = columnName;
+            //TODO get typeName from relation
+            if (!sobject[fieldName]) {
+              sobject[fieldName] = {
+                "records": [{
+                  "attributes": {"type": typeName, "referenceId": "ref" + i},
+                }]
+              };
+            }
+            //TODO handel index of child collection
+            //TODO handle recurssive u to 5 level deep
+            //Up to a total of 200 records across all trees
+            //Up to five records of different types
+            // mapping must be don with relation
+            sobject[fieldName].records[0][subFieldName] = row[c];
+          }
+        }
+      }
+      importArgs.records.push(sobject);
+    }
+    if (batchRows.length == 0) {
+      if (this.activeBatches == 0) {
+        this.isProcessingQueue = false;
+      }
+      return;
+    }
+    this.activeBatches++;
+    this.updateResult(this.importData.importTable);
+
+    // When receiving invalid input, Salesforce will respond with HTTP status 500.
+    // Chrome misinterprets that as the server being overloaded,
+    // and will block the connection if it receives too many such errors too quickly.
+    // See http://dev.chromium.org/throttling
+    // To avoid that, we delay each batch a little at the beginning,
+    // and we stop processing when we receive too many consecutive batch level errors.
+    // Note: When a batch finishes successfully, it will start a timeout parallel to any existing timeouts,
+    // so we will reach full batchConcurrency faster that timeoutDelay*batchConcurrency,
+    // unless batches are slower than timeoutDelay.
+    setTimeout(this.executeBatch.bind(this), 2500);
+
+    this.spinFor(sfConn.rest("/services/data/v" + apiVersion + "/composite/tree/" + this.importType, {method: "POST", body: importArgs, headers: {}}).then(res => {
+
+      let results = sfConn.asArray(res);
+      for (let i = 0; i < results.length; i++) {
+        let result = results[i];
+        let row = batchRows[i];
+        if (result.success == "true") {
+          row[statusColumnIndex] = "Succeeded";
+          row[actionColumnIndex] = importAction == "create" ? "Inserted" : "Unknown";
+        } else {
+          row[statusColumnIndex] = "Failed";
+          row[actionColumnIndex] = "";
+        }
+        row[resultIdColumnIndex] = result.id || "";
+        row[errorColumnIndex] = sfConn.asArray(result.errors).map(errorNode =>
+          errorNode.statusCode
+          + ": " + errorNode.message
+          + " [" + sfConn.asArray(errorNode.fields).join(", ") + "]"
+        ).join(", ");
+      }
+      this.consecutiveFailures = 0;
+    }, err => {
+      if (err.name != "SalesforceSoapError") {
+        throw err; // Not an HTTP error response
+      }
+      let errorText = err.message;
+      for (let row of batchRows) {
+        row[statusColumnIndex] = "Failed";
+        row[resultIdColumnIndex] = "";
+        row[actionColumnIndex] = "";
+        row[errorColumnIndex] = errorText;
+      }
+      this.consecutiveFailures++;
+      // If a whole batch has failed (as opposed to individual records failing),
+      // too many times in a row, we stop the import.
+      // This is useful when an error will affect all batches, for example a field name being misspelled.
+      // This also helps prevent throtteling in Chrome.
+      // A batch failing might not affect all batches, so we wait for a few consecutive errors before we stop.
+      // For example, a whole batch will fail if one of the field values is of an incorrect type or format.
+      if (this.consecutiveFailures >= 3) {
+        this.isProcessingQueue = false;
+      }
+    }).then(() => {
+      this.activeBatches--;
+      this.updateResult(this.importData.importTable);
+      this.executeBatch();
+    }).catch(error => {
+      console.error("Unexpected exception", error);
+      this.isProcessingQueue = false;
+    }));
+  }
 }
 
 function csvSerialize(table, separator) {
