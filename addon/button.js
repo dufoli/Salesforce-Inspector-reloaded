@@ -107,7 +107,29 @@ function initButton(sfHost, inInspector) {
         closePopup();
       }
     });
+    //manage our self the darg n drop
+    btn.ondragstart = function() {
+      return false;
+    };
+    function onbuttonmove(event) {
+      console.log('move to '+event.clientX+' , '+event.clientY);
+      console.log(' on ' + rootEl.getBoundingClientRect());
+      //if 
+      //localStorage.setItem("popupArrowOrientation", orientation);
+      //localStorage.setItem("popupArrowPosition", position);
+    };
+    btn.addEventListener("dragstart", (event) => {
+      event.dataTransfer.dropEffect = "move";
+    });
 
+    btn.addEventListener("drag", (event) => {
+      onbuttonmove(event);
+    });
+    
+    btn.addEventListener("drop", (event) => {
+      onbuttonmove(event);
+    });
+    
     let popupSrc = chrome.runtime.getURL("popup.html");
     let popupEl = document.createElement("iframe");
     popupEl.className = "insext-popup";
