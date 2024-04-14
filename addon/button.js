@@ -86,7 +86,7 @@ function initButton(sfHost, inInspector) {
     let popupArrowPosition = iFrameLocalStorage.popupArrowPosition ? (iFrameLocalStorage.popupArrowPosition + "%") : "122px";
     updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupArrowOrientation, popupArrowPosition);
   }
-  
+
   function updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupArrowOrientation, popupArrowPosition) {
     if (popupArrowOrientation == "vertical") {
       rootElement.style.top = popupArrowPosition;
@@ -94,16 +94,19 @@ function initButton(sfHost, inInspector) {
         rootElement.style.right = "0px";
         buttonElement.classList.add("insext-btn-vertical");
         buttonElement.classList.remove("insext-btn-horizontal");
+        buttonElement.innerText = "";
         let img = document.createElement("img");
         img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAPCAYAAADd/14OAAAA40lEQVQoz2P4//8/AzpWzGj6L59U/V8urgxMg/g4FUn6J/+X9E38LxWc8V8htR67IpCkuGfMfxCQjSpENRFFkXvk/1+/foGxQloDSD0DVkVfvnyBY7hCdEVv3rxBwXCFIIdKh2WDFT1+/BgDo1qd2fL/1q1bWDFcoW5xz3/Xppn/oycu/X/x4kUMDFeoWdD136R8wn+f9rlgxSdOnEDBKFajK96/fz8coyjEpnj79u1gjKEQXXFE/+L/Gzdu/G9WMfG/am4HZlzDFAf3LPwfOWEJWBPIwwzYUg9MsXXNFDAN4gMAmASShdkS4AcAAAAASUVORK5CYII=";
         buttonElement.appendChild(img);
-        }
+      }
     } else {
       rootElement.style.right = popupArrowPosition;
       if (!(buttonElement.classList.contains("insext-btn-horizontal"))) {
         rootElement.style.bottom = "0px";
+        rootElement.style.top = "";
         buttonElement.classList.add("insext-btn-horizontal");
         buttonElement.classList.remove("insext-btn-vertical");
+        buttonElement.innerText = "";
         let img = document.createElement("img");
         img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAKCAYAAABrGwT5AAAAAXNSR0IArs4c6QAAAFBlWElmTU0AKgAAAAgAAgESAAMAAAABAAEAAIdpAAQAAAABAAAAJgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAD6ADAAQAAAABAAAACgAAAADdC3pnAAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgIDwvcmRmOkRlc2NyaXB0aW9uPgogICA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgoZXuEHAAABKElEQVQoFWNgwAI0C7r+6xb3/AdJKaTW/1fMaAKz0ZUyoguANHKzszEIcnMy3Hn+muHX2+cMLDwCDExs7Az3Z9ShqGdC1gzTKCHAyyDGz8OwszCM4c/Hdwy/P75l+PfrJwO6C+CakTXyc3EwlDnogM09M6eL4e+Xj1gNAGtG15hrrozsIIarSydjNYARXWOKnhQDJycnBubg4GBQDk5lYObhZ2DlFwaHARMocORFBRl4ONgYYtSEUGxE5zzevJDh77cvwEB8AQ4DJnZWFgY2FmaGSCU+dLVY+S+2LWZg+PeP4f+f3wwsP3//Yfj8/SdD6/G3DK/evceqAVkQFHiMwGhjZGFlYPn68xfDwzfvGX78+sPwYFYDSjwia4KxQdHF/JePgZGZmQEASqV1t0W3n+oAAAAASUVORK5CYII=";
         buttonElement.appendChild(img);
@@ -121,35 +124,35 @@ function initButton(sfHost, inInspector) {
     });
 
     function onbuttonmove(event) {
-      console.log('move to '+event.clientX+' , '+event.clientY);
-      console.log(' on ' + rootEl.getBoundingClientRect());
+      console.log("move to " + event.clientX + " , " + event.clientY);
+      //console.log(" on " + rootEl.getBoundingClientRect());
       let popupArrowOrientation;
       let popupArrowPosition;
       // if above the diagonal
-      if (event.clientY > (rootEl.getBoundingClientRect().width * event.clientX) * rootEl.getBoundingClientRect().height) {
+      if (event.clientY > (event.clientX / document.documentElement.clientWidth) * document.documentElement.clientHeight) {
         popupArrowOrientation = "horizontal";
-        popupArrowPosition = event.clientX / rootEl.getBoundingClientRect().width;
+        popupArrowPosition = 100 - Math.floor(event.clientX * 100 / document.documentElement.clientWidth);
       } else {
         popupArrowOrientation = "vertical";
-        popupArrowPosition = event.clientY / rootEl.getBoundingClientRect().height;
+        popupArrowPosition = Math.floor(event.clientY * 100 / document.documentElement.clientHeight);
       }
-      updateButtonCSSPropertiesIfNeeded(rootEl, btn, popupArrowOrientation, popupArrowPosition)
-      
-    };
+      localStorage.setItem("popupArrowOrientation", popupArrowOrientation);
+      localStorage.setItem("popupArrowPosition", popupArrowPosition);
+      popupArrowPosition = popupArrowPosition + "%";
+      updateButtonCSSPropertiesIfNeeded(rootEl, btn, popupArrowOrientation, popupArrowPosition);
 
+    }
+    function endmove(event) {
+      console.log("end");
+      window.removeEventListener("mousemove", onbuttonmove);
+      window.removeEventListener("mouseup", endmove);
+    }
     btn.addEventListener("mousedown", (event) => {
-      console.log('start');
-      btn.addEventListener("mousemove", onbuttonmove);
+      console.log("start");
+      window.addEventListener("mousemove", onbuttonmove);
+      window.addEventListener("mouseup", endmove);
     });
-    
-    btn.addEventListener("mouseup", (event) => {
-      console.log('end');
-      btn.removeEventListener("mousemove", onbuttonmove);
-      iFrameLocalStorage.setItem("popupArrowOrientation", popupArrowOrientation);
-      iFrameLocalStorage.setItem("popupArrowPosition", popupArrowPosition);
-      updateButtonCSSPropertiesFromStorage(rootEl, btn)
-    });
-    
+
     let popupSrc = chrome.runtime.getURL("popup.html");
     let popupEl = document.createElement("iframe");
     popupEl.className = "insext-popup";
