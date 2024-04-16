@@ -81,15 +81,29 @@ function initButton(sfHost, inInspector) {
     }
   }
 
-  function updateButtonCSSPropertiesFromStorage(rootElement, buttonElement) {
+  function updateButtonCSSPropertiesFromStorage(rootElement, buttonElement, popupEl) {
     let popupArrowOrientation = iFrameLocalStorage.popupArrowOrientation ? iFrameLocalStorage.popupArrowOrientation : "vertical";
     let popupArrowPosition = iFrameLocalStorage.popupArrowPosition ? (iFrameLocalStorage.popupArrowPosition + "%") : "122px";
-    updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupArrowOrientation, popupArrowPosition);
+    updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupEl, popupArrowOrientation, popupArrowPosition);
   }
 
-  function updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupArrowOrientation, popupArrowPosition) {
+  function updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupEl, popupArrowOrientation, popupArrowPosition) {
+
     if (popupArrowOrientation == "vertical") {
       rootElement.style.top = popupArrowPosition;
+
+      popupEl.classList.remove("insext-popup-horizontal");
+      popupEl.classList.remove("insext-popup-horizontal-left");
+      popupEl.classList.remove("insext-popup-horizontal-right");
+      popupEl.classList.remove("insext-popup-horizontal-centered");
+
+      popupEl.classList.add("insext-popup-vertical");
+      if (popupArrowPosition >= 55) {
+        popupEl.classList.add("insext-popup-vertical-up");
+      } else {
+        popupEl.classList.remove("insext-popup-vertical-up");
+      }
+
       if (!(buttonElement.classList.contains("insext-btn-vertical"))) {
         rootElement.style.right = "0px";
         buttonElement.classList.add("insext-btn-vertical");
@@ -100,7 +114,27 @@ function initButton(sfHost, inInspector) {
         buttonElement.appendChild(img);
       }
     } else {
+      // horizontal
       rootElement.style.right = popupArrowPosition;
+
+      if (popupArrowPosition < 8) {
+        popupEl.classList.add("insext-popup-horizontal-left");
+        popupEl.classList.remove("insext-popup-horizontal-right");
+        popupEl.classList.remove("insext-popup-horizontal-centered");
+      } else if (popupArrowPosition >= 90) {
+        popupEl.classList.remove("insext-popup-horizontal-left");
+        popupEl.classList.add("insext-popup-horizontal-right");
+        popupEl.classList.remove("insext-popup-horizontal-centered");
+      } else {
+        popupEl.classList.remove("insext-popup-horizontal-left");
+        popupEl.classList.remove("insext-popup-horizontal-right");
+        popupEl.classList.add("insext-popup-horizontal-centered");
+      }
+
+      popupEl.classList.add("insext-popup-horizontal");
+      popupEl.classList.remove("insext-popup-vertical");
+      popupEl.classList.remove("insext-popup-vertical-up");
+
       if (!(buttonElement.classList.contains("insext-btn-horizontal"))) {
         rootElement.style.bottom = "0px";
         rootElement.style.top = "";
@@ -123,9 +157,9 @@ function initButton(sfHost, inInspector) {
       }
     });
 
+    let popupEl = document.createElement("iframe");
+
     function onbuttonmove(event) {
-      console.log("move to " + event.clientX + " , " + event.clientY);
-      //console.log(" on " + rootEl.getBoundingClientRect());
       let popupArrowOrientation;
       let popupArrowPosition;
       // if above the diagonal
@@ -139,22 +173,19 @@ function initButton(sfHost, inInspector) {
       localStorage.setItem("popupArrowOrientation", popupArrowOrientation);
       localStorage.setItem("popupArrowPosition", popupArrowPosition);
       popupArrowPosition = popupArrowPosition + "%";
-      updateButtonCSSPropertiesIfNeeded(rootEl, btn, popupArrowOrientation, popupArrowPosition);
+      updateButtonCSSPropertiesIfNeeded(rootEl, btn, popupEl, popupArrowOrientation, popupArrowPosition);
 
     }
     function endmove(event) {
-      console.log("end");
       window.removeEventListener("mousemove", onbuttonmove);
       window.removeEventListener("mouseup", endmove);
     }
     btn.addEventListener("mousedown", (event) => {
-      console.log("start");
       window.addEventListener("mousemove", onbuttonmove);
       window.addEventListener("mouseup", endmove);
     });
 
     let popupSrc = chrome.runtime.getURL("popup.html");
-    let popupEl = document.createElement("iframe");
     popupEl.className = "insext-popup";
     popupEl.classList.add(localStorage.getItem("popupArrowOrientation") == "horizontal" ? "insext-popup-horizontal" : "insext-popup-vertical");
     popupEl.src = popupSrc;
@@ -165,21 +196,8 @@ function initButton(sfHost, inInspector) {
       if (e.data.insextInitRequest) {
         // Set CSS classes for arrow button position
         iFrameLocalStorage = e.data.iFrameLocalStorage;
-        popupEl.classList.add(iFrameLocalStorage.popupArrowOrientation == "horizontal" ? "insext-popup-horizontal" : "insext-popup-vertical");
-        if (iFrameLocalStorage.popupArrowOrientation == "horizontal") {
-          if (iFrameLocalStorage.popupArrowPosition < 8) {
-            popupEl.classList.add("insext-popup-horizontal-left");
-          } else if (iFrameLocalStorage.popupArrowPosition >= 90) {
-            popupEl.classList.add("insext-popup-horizontal-right");
-          } else {
-            popupEl.classList.add("insext-popup-horizontal-centered");
-          }
-        } else if (iFrameLocalStorage.popupArrowOrientation == "vertical") {
-          if (iFrameLocalStorage.popupArrowPosition >= 55) {
-            popupEl.classList.add("insext-popup-vertical-up");
-          }
-        }
-        updateButtonCSSPropertiesFromStorage(rootEl, btn);
+        
+        updateButtonCSSPropertiesFromStorage(rootEl, btn, popupEl);
         addFlowScrollability(popupEl);
         popupEl.contentWindow.postMessage({
           insextInitResponse: true,
