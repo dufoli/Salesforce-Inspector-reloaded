@@ -83,14 +83,14 @@ function initButton(sfHost, inInspector) {
 
   function updateButtonCSSPropertiesFromStorage(rootElement, buttonElement, popupEl) {
     let popupArrowOrientation = iFrameLocalStorage.popupArrowOrientation ? iFrameLocalStorage.popupArrowOrientation : "vertical";
-    let popupArrowPosition = iFrameLocalStorage.popupArrowPosition ? (iFrameLocalStorage.popupArrowPosition + "%") : "122px";
+    let popupArrowPosition = iFrameLocalStorage.popupArrowPosition ? (iFrameLocalStorage.popupArrowPosition) : "15";
     updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupEl, popupArrowOrientation, popupArrowPosition);
   }
 
   function updateButtonCSSPropertiesIfNeeded(rootElement, buttonElement, popupEl, popupArrowOrientation, popupArrowPosition) {
 
     if (popupArrowOrientation == "vertical") {
-      rootElement.style.top = popupArrowPosition;
+      rootElement.style.top = popupArrowPosition + "%";
 
       popupEl.classList.remove("insext-popup-horizontal");
       popupEl.classList.remove("insext-popup-horizontal-left");
@@ -115,7 +115,7 @@ function initButton(sfHost, inInspector) {
       }
     } else {
       // horizontal
-      rootElement.style.right = popupArrowPosition;
+      rootElement.style.right = popupArrowPosition + "%";
 
       if (popupArrowPosition < 8) {
         popupEl.classList.add("insext-popup-horizontal-left");
@@ -172,7 +172,6 @@ function initButton(sfHost, inInspector) {
       }
       localStorage.setItem("popupArrowOrientation", popupArrowOrientation);
       localStorage.setItem("popupArrowPosition", popupArrowPosition);
-      popupArrowPosition = popupArrowPosition + "%";
       updateButtonCSSPropertiesIfNeeded(rootEl, btn, popupEl, popupArrowOrientation, popupArrowPosition);
 
     }
