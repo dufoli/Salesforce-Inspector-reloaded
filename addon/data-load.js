@@ -974,7 +974,12 @@ export class Editor extends React.Component {
     //let endIndex;
     let keywords = [];
     for (let keyword of keywordColor.keys()) {
-      keywords.push(keyword);
+      if (["[", "]", "(", ")"].includes(keyword)) {
+        keywords.push("\\" + keyword);
+      } else {
+        keywords.push(keyword);
+      }
+
     }
     let keywordRegEx = new RegExp("\\b(" + keywords.join("|") + ")\\b|(\\/\\/|\\/\\*|')", "g" + (keywordCaseSensitive ? "" : "i"));
     //yellow for function

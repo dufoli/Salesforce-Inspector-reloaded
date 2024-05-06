@@ -1204,11 +1204,13 @@ class App extends React.Component {
             ),
           ),
         ),
-        h("div", {className: "editor"},
+        h("div", {className: "editor-container"},
           h("div", {className: "line-numbers"},
             Array(model.numberOfLines).fill(null).map((e, i) => h("span", {key: "LineNumber" + i}))
           ),
-          h(Editor, {model, keywordColor, keywordCaseSensitive: true}),
+          h("div", {className: "editor-wrapper"},
+            h(Editor, {model, keywordColor, keywordCaseSensitive: true})
+          )
         ),
         h("div", {className: "autocomplete-box"},
           h("div", {className: "autocomplete-header"},
@@ -1218,7 +1220,7 @@ class App extends React.Component {
               h("button", {tabIndex: 2, onClick: this.onCopyScript, title: "Copy script url", className: "copy-id"}, "Export Script")
             ),
           ),
-          h("div", {className: "autocomplete-results"},
+          h("div", {className: "autocomplete-results", style: {top: model.suggestionTop + "px", left: model.suggestionLeft + "px"}},
             model.autocompleteResults.results.map(r =>
               h("div", {className: "autocomplete-result", key: r.key ? r.key : r.value}, h("a", {tabIndex: 0, title: r.title, onClick: e => { e.preventDefault(); model.autocompleteClick(r); model.didUpdate(); }, href: "#", className: r.autocompleteType + " " + r.dataType}, h("div", {className: "autocomplete-icon"}), r.title), " ")
             )
