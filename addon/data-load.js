@@ -914,13 +914,15 @@ export class Editor extends React.Component {
       ]);
       const closeChar = openToCloseChar.get(e.key);
       // if quote (or any other start char) before and quote (or any other corresponding end char) right after it do not add quote (or the corresponding end char) but just move cursor after the it
-      if (selectionStart === selectionEnd && model.editor.value.substring(selectionStart - 1, selectionStart) == e.key && model.editor.value.substring(selectionEnd, selectionEnd + 1) == closeChar) {
+      if ((e.key === "'" || e.key === "\"") && selectionStart > 0 && selectionEnd < model.editor.value.length && selectionStart === selectionEnd && model.editor.value.substring(selectionStart - 1, selectionStart) == e.key && model.editor.value.substring(selectionEnd, selectionEnd + 1) == closeChar) {
         model.editor.setRangeText("", selectionEnd + 1, selectionEnd + 1, "end");
       } else {
         model.editor.setRangeText(e.key, selectionStart, selectionStart, "end");
         // add of close quote after open quote happend only if nxt character is space, break line, close parenthesis, close bracket... maybe just if next charactere is not a-z or 0-9
         // look for char at + 1 because start char is already inserted
-        if ((e.key !== "'" && e.key !== "\"") || /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2))) {
+        if (selectionStart != selectionEnd) {
+          model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
+        } else if ((e.key !== "'" && e.key !== "\"") || (selectionEnd + 1 < model.editor.value.length && /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2)))) {
           model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
         }
       }
