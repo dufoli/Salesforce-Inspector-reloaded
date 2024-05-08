@@ -922,7 +922,10 @@ export class Editor extends React.Component {
         // look for char at + 1 because start char is already inserted
         if (selectionStart != selectionEnd) {
           model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
-        } else if ((e.key !== "'" && e.key !== "\"") || (selectionEnd + 1 < model.editor.value.length && /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2)))) {
+        } else if (
+            (e.key !== "'" && e.key !== "\"") ||
+            (selectionEnd + 1 < model.editor.value.length && /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2))) ||
+            selectionEnd + 1 === model.editor.value.length) {
           model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
         }
       }
