@@ -776,6 +776,7 @@ export class Editor extends React.Component {
     this.editorAutocompleteEvent = this.editorAutocompleteEvent.bind(this);
     this.onScroll = this.onScroll.bind(this);
     this.processText = this.processText.bind(this);
+    this.numberOfLines = 1;
   }
 
   componentDidMount() {
@@ -816,6 +817,7 @@ export class Editor extends React.Component {
     const ro = new ResizeObserver(() => {
       editorInput.getBoundingClientRect().height;
       editorMirror.style.height = `${editorInput.getBoundingClientRect().height}px`;
+      editorMirror.style.width = `${editorInput.getBoundingClientRect().width}px`;
       recalculateHeight();
     });
     ro.observe(editorInput);
@@ -923,9 +925,9 @@ export class Editor extends React.Component {
         if (selectionStart != selectionEnd) {
           model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
         } else if (
-            (e.key !== "'" && e.key !== "\"") ||
-            (selectionEnd + 1 < model.editor.value.length && /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2))) ||
-            selectionEnd + 1 === model.editor.value.length) {
+          (e.key !== "'" && e.key !== "\"")
+          || (selectionEnd + 1 < model.editor.value.length && /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2)))
+          || selectionEnd + 1 === model.editor.value.length) {
           model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
         }
       }
@@ -970,10 +972,12 @@ export class Editor extends React.Component {
     let remaining = src;
     let keywordMatch;
     let highlighted = [];
+    let numberOfLines = src ? src.split("\n").length : 1;
     let selStart = model.editor ? model.editor.selectionStart : 0;
     //let endIndex;
     let keywords = [];
     for (let keyword of keywordColor.keys()) {
+      //TODO \^, \$, \\, \. \*, \+, \?, \(, \), \[, \], {, }, \|, \/
       if (["[", "]", "(", ")"].includes(keyword)) {
         keywords.push("\\" + keyword);
       } else {
@@ -1051,14 +1055,22 @@ export class Editor extends React.Component {
     if (remaining) {
       highlighted.push({value: remaining, attributes: {style: {color: "black"}, key: "hl" + highlighted.length}});
     }
-    return highlighted;
+    return {highlighted, numberOfLines};
   }
   render() {
     let {model} = this.props;
-    let highlighted = this.processText(model.editor ? model.editor.value : "");
-    return h("div", {className: "editor_container"},
-      h("div", {ref: "editorMirror", className: "editor_container_mirror"}, highlighted.map(s => h("span", s.attributes, s.value))),
-      h("textarea", {id: "editor", autoComplete: "off", autoCorrect: "off", spellCheck: "false", autoCapitalize: "off", className: "editor_textarea", ref: "editor", onScroll: this.onScroll, onKeyUp: this.editorAutocompleteEvent, onMouseUp: this.editorAutocompleteEvent, onSelect: this.editorAutocompleteEvent, onInput: this.editorAutocompleteEvent, onKeyDown: this.handlekeyDown, style: {maxHeight: (model.winInnerHeight - 200) + "px"}})
+    let {highlighted, numberOfLines} = this.processText(model.editor ? model.editor.value : "");
+    return h("div", {className: "editor_container", style: {maxHeight: (model.winInnerHeight - 200) + "px"}},
+      h("div", {className: "editor-container"},
+      //TODO calculate height and top of line-numbers with position absolute wrap and add a wrapper div
+        h("div", {className: "line-numbers"},
+          Array(numberOfLines).fill(null).map((e, i) => h("span", {key: "LineNumber" + i}))
+        ),
+        h("div", {className: "editor-wrapper"},
+          h("div", {ref: "editorMirror", className: "editor_container_mirror"}, highlighted.map(s => h("span", s.attributes, s.value))),
+          h("textarea", {id: "editor", autoComplete: "off", autoCorrect: "off", spellCheck: "false", autoCapitalize: "off", className: "editor_textarea", ref: "editor", onScroll: this.onScroll, onKeyUp: this.editorAutocompleteEvent, onMouseUp: this.editorAutocompleteEvent, onSelect: this.editorAutocompleteEvent, onInput: this.editorAutocompleteEvent, onKeyDown: this.handlekeyDown})
+        )
+      )
     );
   }
 }

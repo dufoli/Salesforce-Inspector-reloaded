@@ -79,7 +79,6 @@ class Model {
 
     this.sfLink = "https://" + sfHost;
     this.spinnerCount = 0;
-    this.numberOfLines = 1;
     this.showHelp = false;
     this.userInfo = "...";
     this.userId = null;
@@ -141,7 +140,6 @@ class Model {
   setEditor(editor) {
     this.editor = editor;
     editor.value = this.initialScript;
-    this.numberOfLines = this.initialScript.split("\n").length;
     this.initialScript = null;
   }
   toggleHelp() {
@@ -530,12 +528,7 @@ class Model {
     let selStart = vm.editor.selectionStart;
     let selEnd = vm.editor.selectionEnd;
     let ctrlSpace = e.ctrlSpace;
-    let numberOfLines = script.split("\n").length;
     this.parseAnonApex(script);
-    if (vm.numberOfLines != numberOfLines) {
-      vm.numberOfLines = numberOfLines;
-      vm.didUpdate();
-    }
     //TODO place suggestion over the text area with miroring text with span
     //advantage is that we can provide color highlight thanks to that.
     /*
@@ -1204,17 +1197,10 @@ class App extends React.Component {
             ),
           ),
         ),
-        h("div", {className: "editor-container"},
-          h("div", {className: "line-numbers"},
-            Array(model.numberOfLines).fill(null).map((e, i) => h("span", {key: "LineNumber" + i}))
-          ),
-          h("div", {className: "editor-wrapper"},
-            h(Editor, {model, keywordColor, keywordCaseSensitive: true})
-          )
-        ),
+        h(Editor, {model, keywordColor, keywordCaseSensitive: true}),
         h("div", {className: "autocomplete-box"},
           h("div", {className: "autocomplete-header"},
-            h("span", {}, model.autocompleteResults.title),
+            h("span", {}, model.autocompleteResults.title + "(Press Ctrl+Space)"),
             h("div", {className: "flex-right"},
               h("button", {tabIndex: 1, onClick: this.onExecute, title: "Ctrl+Enter / F5", className: "highlighted"}, "Run Execute"),
               h("button", {tabIndex: 2, onClick: this.onCopyScript, title: "Copy script url", className: "copy-id"}, "Export Script")
@@ -1229,7 +1215,7 @@ class App extends React.Component {
         h("div", {hidden: !model.showHelp, className: "help-text"},
           h("h3", {}, "Execute Help"),
           h("p", {}, "Use for running apex script. Enter a ", h("a", {href: "https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_dev_guide.htm", target: "_blank"}, "APEX script"), " in the box above and press Execute."),
-          h("p", {}, "Press Ctrl+Space to insert autosuggestions."),
+          h("p", {}, "Press Enter to insert autosuggestions."),
           h("p", {}, "Press Ctrl+Enter or F5 to execute the execute.")
         )
       ),
