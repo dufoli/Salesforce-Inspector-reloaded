@@ -777,6 +777,7 @@ export class Editor extends React.Component {
     this.onScroll = this.onScroll.bind(this);
     this.processText = this.processText.bind(this);
     this.numberOfLines = 1;
+    this.state = {scrolltop: 0, lineHeight: 0};
   }
 
   componentDidMount() {
@@ -804,6 +805,7 @@ export class Editor extends React.Component {
     ].forEach((property) => {
       editorMirror.style[property] = textareaStyles[property];
     });
+    this.setState({lineHeight: textareaStyles.lineHeight});
     editorMirror.style.borderColor = "transparent";
 
     //const parseValue = (v) => v.endsWith("px") ? parseInt(v.slice(0, -2), 10) : 0;
@@ -849,6 +851,7 @@ export class Editor extends React.Component {
     if (model.editorMirror && model.editor) {
       model.editorMirror.scrollTop = model.editor.scrollTop;
     }
+    this.setState({scrolltop: model.editor.scrollTop});
   }
   editorAutocompleteEvent(e) {
     let {model} = this.props;
@@ -965,7 +968,6 @@ export class Editor extends React.Component {
 
     const rect = caretEle.getBoundingClientRect();
     model.setSuggestionPosition(rect.top + rect.height, rect.left);
-    console.log("top: " + rect.top);
   }
   processText(src) {
     let {keywordColor, keywordCaseSensitive, model} = this.props;
@@ -978,14 +980,12 @@ export class Editor extends React.Component {
     let keywords = [];
     for (let keyword of keywordColor.keys()) {
       //TODO \^, \$, \\, \. \*, \+, \?, \(, \), \[, \], {, }, \|, \/
-      if (["[", "]", "(", ")"].includes(keyword)) {
-        keywords.push("\\" + keyword);
-      } else {
-        keywords.push(keyword);
-      }
-
+      keywords.push(keyword);
     }
-    let keywordRegEx = new RegExp("\\b(" + keywords.join("|") + ")\\b|(\\/\\/|\\/\\*|')", "g" + (keywordCaseSensitive ? "" : "i"));
+
+    let keywordRegEx = new RegExp("\\b(" + keywords.join("|") + ")\\b|(\\/\\/|\\/\\*|'|{|\\[|\\(|}|\\]|\\))", "g" + (keywordCaseSensitive ? "" : "i"));
+    const colorBrackets = ["gold", "purple", "deepskyblue"];
+    let bracketIndex = 0;
     //yellow for function
     while ((keywordMatch = keywordRegEx.exec(remaining)) !== null) {
       let color = "blue";
@@ -1014,6 +1014,14 @@ export class Editor extends React.Component {
         } else {
           sentence = remaining.substring(keywordMatch.index);
         }
+      } else if (keywordMatch[0] == "(" || keywordMatch[0] == "[" || keywordMatch[0] == "{") {
+        color = colorBrackets[bracketIndex % 3];
+        sentence = keywordMatch[0];
+        bracketIndex++;
+      } else if (keywordMatch[0] == ")" || keywordMatch[0] == "]" || keywordMatch[0] == "}") {
+        bracketIndex--;
+        color = colorBrackets[bracketIndex % 3];
+        sentence = keywordMatch[0];
       } else {
         color = keywordColor.get(keywordMatch[1].toLocaleLowerCase());
       }
@@ -1045,7 +1053,7 @@ export class Editor extends React.Component {
       }
       remaining = remaining.substring(keywordMatch.index + sentence.length);
       selStart -= keywordMatch.index + sentence.length;
-      keywordRegEx = new RegExp("\\b(" + keywords.join("|") + ")\\b|(\\/\\/|\\/\\*|')", "g" + (keywordCaseSensitive ? "" : "i"));
+      keywordRegEx = new RegExp("\\b(" + keywords.join("|") + ")\\b|(\\/\\/|\\/\\*|'|{|\\[|\\(|}|\\]|\\))", "g" + (keywordCaseSensitive ? "" : "i"));
     }
     if (selStart > 0) {
       highlighted.push({value: remaining.substring(0, selStart), attributes: {style: {color: "black"}, key: "hl" + highlighted.length}});
@@ -1062,9 +1070,10 @@ export class Editor extends React.Component {
     let {highlighted, numberOfLines} = this.processText(model.editor ? model.editor.value : "");
     return h("div", {className: "editor_container", style: {maxHeight: (model.winInnerHeight - 200) + "px"}},
       h("div", {className: "editor-container"},
-      //TODO calculate height and top of line-numbers with position absolute wrap and add a wrapper div
-        h("div", {className: "line-numbers"},
-          Array(numberOfLines).fill(null).map((e, i) => h("span", {key: "LineNumber" + i}))
+        h("div", {className: "line-numbers-wrapper", style: {lineHeight: this.state.lineHeight}},
+          h("div", {className: "line-numbers", style: {top: -this.state.scrolltop + "px"}},
+            Array(numberOfLines).fill(null).map((e, i) => h("span", {key: "LineNumber" + i}))
+          )
         ),
         h("div", {className: "editor-wrapper"},
           h("div", {ref: "editorMirror", className: "editor_container_mirror"}, highlighted.map(s => h("span", s.attributes, s.value))),

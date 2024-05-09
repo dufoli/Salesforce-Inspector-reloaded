@@ -766,9 +766,17 @@ button.toggle .button-icon {
       background-color: rgb(15 23 42);
   }
 }
+.line-numbers-wrapper {
+  position: relative;
+  width: 44px;
+  overflow: hidden;
+}
+
 .line-numbers {
   text-align: right;
   padding: 8px 10px;
+  position: absolute;
+  width: 44px;
 }
 
 .line-numbers span {

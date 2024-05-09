@@ -1138,8 +1138,7 @@ class App extends React.Component {
 
   render() {
     let {model} = this.props;
-    let keywordColor = new Map([["{", "violet"], ["}", "violet"], ["[", "violet"], ["]", "violet"], ["(", "violet"], ["do", "violet"],
-      [")", "violet"], ["public", "blue"], ["private", "blue"], ["global", "blue"], ["class", "blue"], ["static", "blue"],
+    let keywordColor = new Map([["do", "violet"], ["public", "blue"], ["private", "blue"], ["global", "blue"], ["class", "blue"], ["static", "blue"],
       ["interface", "blue"], ["extends", "blue"], ["while", "violet"], ["for", "violet"], ["try", "violet"], ["catch", "violet"],
       ["finally", "violet"], ["extends", "violet"], ["throw", "violet"], ["new", "violet"], ["if", "violet"], ["else", "violet"]]);
     return h("div", {onClick: this.onClick},
