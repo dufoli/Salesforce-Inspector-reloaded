@@ -1199,7 +1199,7 @@ class App extends React.Component {
         h(Editor, {model, keywordColor, keywordCaseSensitive: true}),
         h("div", {className: "autocomplete-box"},
           h("div", {className: "autocomplete-header"},
-            h("span", {}, model.autocompleteResults.title + "(Press Ctrl+Space)"),
+            h("span", {}, model.autocompleteResults.title),
             h("div", {className: "flex-right"},
               h("button", {tabIndex: 1, onClick: this.onExecute, title: "Ctrl+Enter / F5", className: "highlighted"}, "Run Execute"),
               h("button", {tabIndex: 2, onClick: this.onCopyScript, title: "Copy script url", className: "copy-id"}, "Export Script")
@@ -1214,7 +1214,7 @@ class App extends React.Component {
         h("div", {hidden: !model.showHelp, className: "help-text"},
           h("h3", {}, "Execute Help"),
           h("p", {}, "Use for running apex script. Enter a ", h("a", {href: "https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_dev_guide.htm", target: "_blank"}, "APEX script"), " in the box above and press Execute."),
-          h("p", {}, "Press Enter to insert autosuggestions."),
+          h("p", {}, "Press Ctrl+Space to insert autosuggestions."),
           h("p", {}, "Press Ctrl+Enter or F5 to execute the execute.")
         )
       ),
