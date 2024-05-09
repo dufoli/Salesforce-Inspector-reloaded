@@ -979,7 +979,6 @@ export class Editor extends React.Component {
     //let endIndex;
     let keywords = [];
     for (let keyword of keywordColor.keys()) {
-      //TODO \^, \$, \\, \. \*, \+, \?, \(, \), \[, \], {, }, \|, \/
       keywords.push(keyword);
     }
 
