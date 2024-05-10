@@ -126,29 +126,34 @@ class App extends React.PureComponent {
     });
   }
   async clearOlderFlows({keep, contextUrl}) {
-    let {setIsLoading, sfHost} = this.props;
+    let {sfHost} = this.props;
     if (!contextUrl || !keep) {
       return;
     }
     try {
-      setIsLoading(true);
-      let recordId = getRecordId(contextUrl);
-      const flowSelect = "SELECT FlowDefinitionViewId, FlowDefinitionView.LatestVersionId, FlowDefinitionView.VersionNumber FROM FlowVersionView where DurableId = '" + recordId + "'";
+      let url = new URL(contextUrl);
+      let searchParams = new URLSearchParams(url.search.substring(1));
+      let recordId = searchParams.get("flowId");
+      const flowSelect = "SELECT FlowDefinitionViewId, FlowDefinitionView.VersionNumber FROM FlowVersionView where DurableId = '" + recordId + "'";
       const flowResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowSelect);
       let flowDefinitionViewId;
       let keepLatestVersionNumber;
-      flowResults.body.records.forEach(rec => {
+      flowResults.records.forEach(rec => {
         flowDefinitionViewId = rec.FlowDefinitionViewId;
         keepLatestVersionNumber = rec.FlowDefinitionView.VersionNumber - keep;
       });
 
-      const flowToDeleteQuery = "SELECT Id FROM FlowVersionView where FlowDefinitionId = " + flowDefinitionViewId + " and VersionNumber  < " + keepLatestVersionNumber;
+      const flowToDeleteQuery = "SELECT Id FROM FlowVersionView where FlowDefinitionViewId = '" + flowDefinitionViewId + "' and VersionNumber  < " + keepLatestVersionNumber;
       const flowToDeleteResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowToDeleteQuery);
       let flowToDelete = "\"Id\"";
-      flowToDeleteResults.body.records.forEach(rec => {
+      if (flowToDeleteResults.records.length === 0) {
+        console.log('No old versions to delete')
+        return
+      }
+      flowToDeleteResults.records.forEach(rec => {
         flowToDelete += "\r\n\"" + rec.Id + "\"";
       });
-      let encodedData = btoa(flowToDelete);
+      let encodedData = window.btoa(flowToDelete);
 
       let args = new URLSearchParams();
       args.set("host", sfHost);
@@ -159,8 +164,6 @@ class App extends React.PureComponent {
     } catch (err) {
       console.error("Unable to clean old flow", err);
       return;
-    } finally {
-      setIsLoading(false);
     }
   }
 
