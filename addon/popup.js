@@ -126,35 +126,38 @@ class App extends React.PureComponent {
     });
   }
   async clearOlderFlows(keep) {
-    let {contextUrl, setIsLoading} = this.props;
+    let {contextUrl, setIsLoading, sfHost} = this.props;
     if (!contextUrl) {
       return;
     }
     try {
       setIsLoading(true);
       let recordId = getRecordId(contextUrl);
-      const flowSelect = "SELECT FlowDefinitionViewId, FlowDefinitionView.LatestVersionId FROM FlowVersionView where DurableId = '" + recordId + "'";
+      const flowSelect = "SELECT FlowDefinitionViewId, FlowDefinitionView.LatestVersionId, FlowDefinitionView.VersionNumber FROM FlowVersionView where DurableId = '" + recordId + "'";
       const flowResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowSelect);
       let flowDefinitionViewId;
-      let keepLatestVersionId;
-      flowResults.forEach(element => {
-        element.body.records.forEach(rec => {
-          flowDefinitionViewId = rec.FlowDefinitionViewId;
-          keepLatestVersionId = rec.FlowDefinitionView.LatestVersionId - keep;
-        });
+      let keepLatestVersionNumber;
+      flowResults.body.records.forEach(rec => {
+        flowDefinitionViewId = rec.FlowDefinitionViewId;
+        keepLatestVersionNumber = rec.FlowDefinitionView.VersionNumber - keep;
       });
 
-      const flowToDeleteQuery = "SELECT id FROM FlowVersionView where FlowDefinitionId = " + flowDefinitionViewId + " and VersionNumber  < " + keepLatestVersionId;
+      const flowToDeleteQuery = "SELECT Id FROM FlowVersionView where FlowDefinitionId = " + flowDefinitionViewId + " and VersionNumber  < " + keepLatestVersionNumber;
       const flowToDeleteResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowToDeleteQuery);
-      let flowToDelete = [];
-      flowToDeleteResults.forEach(element => {
-        element.body.records.forEach(rec => {
-          flowToDelete.push(rec.id);
-        });
+      let flowToDelete = "\"Id\"";
+      flowToDeleteResults.body.records.forEach(rec => {
+        flowToDelete += "\r\n\"" + rec.Id + "\"";
       });
-      //TODO redirect to delete
+      let encodedData = btoa(flowToDelete);
+
+      let args = new URLSearchParams();
+      args.set("host", sfHost);
+      args.set("data", encodedData);
+      if (this.queryTooling) args.set("apitype", "Tooling");
+
+      window.open("data-import.html?" + args, "_blank");
     } catch (err) {
-      console.error("Unable to find shortcut", err);
+      console.error("Unable to clean old flow", err);
       return;
     } finally {
       setIsLoading(false);
