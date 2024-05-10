@@ -118,16 +118,16 @@ class App extends React.PureComponent {
         contextUrl: locationHref
       });
     } else if (e.data.clearOlderFlows) {
-      this.clearOlderFlows(e.data.clearOlderFlows.keep);
+      this.clearOlderFlows(JSON.parse(e.data.clearOlderFlows));
       return;
     }
     this.setState({
       isFieldsPresent: e.data.isFieldsPresent
     });
   }
-  async clearOlderFlows(keep) {
-    let {contextUrl, setIsLoading, sfHost} = this.props;
-    if (!contextUrl) {
+  async clearOlderFlows({keep, contextUrl}) {
+    let {setIsLoading, sfHost} = this.props;
+    if (!contextUrl || !keep) {
       return;
     }
     try {
