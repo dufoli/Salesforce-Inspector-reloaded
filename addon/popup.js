@@ -117,11 +117,50 @@ class App extends React.PureComponent {
         isInSetup: locationHref.includes("/lightning/setup/"),
         contextUrl: locationHref
       });
+    } else if (e.data.clearOlderFlows) {
+      this.clearOlderFlows(e.data.clearOlderFlows.keep);
+      return;
     }
     this.setState({
       isFieldsPresent: e.data.isFieldsPresent
     });
   }
+  async clearOlderFlows(keep) {
+    let {contextUrl, setIsLoading} = this.props;
+    if (!contextUrl) {
+      return;
+    }
+    try {
+      setIsLoading(true);
+      let recordId = getRecordId(contextUrl);
+      const flowSelect = "SELECT FlowDefinitionViewId, FlowDefinitionView.LatestVersionId FROM FlowVersionView where DurableId = '" + recordId + "'";
+      const flowResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowSelect);
+      let flowDefinitionViewId;
+      let keepLatestVersionId;
+      flowResults.forEach(element => {
+        element.body.records.forEach(rec => {
+          flowDefinitionViewId = rec.FlowDefinitionViewId;
+          keepLatestVersionId = rec.FlowDefinitionView.LatestVersionId - keep;
+        });
+      });
+
+      const flowToDeleteQuery = "SELECT id FROM FlowVersionView where FlowDefinitionId = " + flowDefinitionViewId + " and VersionNumber  < " + keepLatestVersionId;
+      const flowToDeleteResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowToDeleteQuery);
+      let flowToDelete = [];
+      flowToDeleteResults.forEach(element => {
+        element.body.records.forEach(rec => {
+          flowToDelete.push(rec.id);
+        });
+      });
+      //TODO redirect to delete
+    } catch (err) {
+      console.error("Unable to find shortcut", err);
+      return;
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   updateReleaseNotesViewed(version) {
     localStorage.setItem("latestReleaseNotesVersionViewed", version);
     this.setState({
