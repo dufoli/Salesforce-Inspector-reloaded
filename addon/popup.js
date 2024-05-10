@@ -143,22 +143,23 @@ class App extends React.PureComponent {
         keepLatestVersionNumber = rec.FlowDefinitionView.VersionNumber - keep;
       });
 
-      const flowToDeleteQuery = "SELECT Id FROM FlowVersionView where FlowDefinitionViewId = '" + flowDefinitionViewId + "' and VersionNumber  < " + keepLatestVersionNumber;
+      const flowToDeleteQuery = "SELECT Id, DurableId FROM FlowVersionView where FlowDefinitionViewId = '" + flowDefinitionViewId + "' and VersionNumber  < " + keepLatestVersionNumber;
       const flowToDeleteResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowToDeleteQuery);
       let flowToDelete = "\"Id\"";
       if (flowToDeleteResults.records.length === 0) {
-        console.log('No old versions to delete')
-        return
+        console.log("No old versions to delete");
+        return;
       }
       flowToDeleteResults.records.forEach(rec => {
-        flowToDelete += "\r\n\"" + rec.Id + "\"";
+        flowToDelete += "\r\n\"" + rec.DurableId + "\"";
       });
       let encodedData = window.btoa(flowToDelete);
 
       let args = new URLSearchParams();
       args.set("host", sfHost);
       args.set("data", encodedData);
-      if (this.queryTooling) args.set("apitype", "Tooling");
+      args.set("sobject", "Flow");
+      args.set("apitype", "Tooling");
 
       window.open("data-import.html?" + args, "_blank");
     } catch (err) {
