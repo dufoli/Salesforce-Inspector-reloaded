@@ -87,7 +87,6 @@ function initButton(sfHost, inInspector) {
 
       clearFlowButton.addEventListener("click", () => {
         let clearArgs = {
-          keep: 5,
           contextUrl: window.location.href
         };
         popupEl.contentWindow.postMessage({

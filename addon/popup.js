@@ -125,7 +125,8 @@ class App extends React.PureComponent {
       isFieldsPresent: e.data.isFieldsPresent
     });
   }
-  async clearOlderFlows({keep, contextUrl}) {
+  async clearOlderFlows({contextUrl}) {
+    let keep = parseInt(localStorage.getItem("clearOlderFlowsKeep") || "5");
     let {sfHost} = this.props;
     if (!contextUrl || !keep) {
       return;
@@ -143,7 +144,7 @@ class App extends React.PureComponent {
         keepLatestVersionNumber = rec.FlowDefinitionView.VersionNumber - keep;
       });
 
-      const flowToDeleteQuery = "SELECT Id, DurableId FROM FlowVersionView where FlowDefinitionViewId = '" + flowDefinitionViewId + "' and VersionNumber  < " + keepLatestVersionNumber;
+      const flowToDeleteQuery = "SELECT Id, DurableId FROM FlowVersionView where FlowDefinitionViewId = '" + flowDefinitionViewId + "' and VersionNumber  <= " + keepLatestVersionNumber;
       const flowToDeleteResults = await sfConn.rest("/services/data/v" + apiVersion + "/query/?q=" + flowToDeleteQuery);
       let flowToDelete = "\"Id\"";
       if (flowToDeleteResults.records.length === 0) {
