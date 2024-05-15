@@ -882,6 +882,13 @@ export class Editor extends React.Component {
           }
         }
         break;
+      case "ArrowRight":
+      case "ArrowLeft":
+        //naviguation reset active suggestion
+        if (model.displaySuggestion && !model.disableSuggestionOverText && model.activeSuggestion != -1) {
+          model.activeSuggestion = -1;
+        }
+        break;
       case "ArrowDown":
         if (model.displaySuggestion && !model.disableSuggestionOverText) {
           e.preventDefault();
@@ -895,7 +902,7 @@ export class Editor extends React.Component {
         }
         break;
       case "Enter":
-        if (model.displaySuggestion && !model.disableSuggestionOverText && model.activeSuggestion) {
+        if (model.displaySuggestion && !model.disableSuggestionOverText && model.activeSuggestion != -1) {
           e.preventDefault();
           model.selectSuggestion();
         }
@@ -903,6 +910,7 @@ export class Editor extends React.Component {
       case "Escape":
         if (!model.disableSuggestionOverText) {
           e.preventDefault();
+          model.activeSuggestion = -1;
           model.hideSuggestion();
         }
         break;
@@ -1012,6 +1020,7 @@ export class Editor extends React.Component {
     if (model.disableSuggestionOverText) {
       this.editorAutocompleteEvent(e);
     } else if (!model.displaySuggestion) {
+      model.activeSuggestion = -1;
       model.showSuggestion();
     }
   }
