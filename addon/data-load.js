@@ -776,6 +776,7 @@ export class Editor extends React.Component {
     this.editorAutocompleteEvent = this.editorAutocompleteEvent.bind(this);
     this.onScroll = this.onScroll.bind(this);
     this.processText = this.processText.bind(this);
+    this.handleMouseUp = this.handleMouseUp.bind(this);
     this.numberOfLines = 1;
     this.state = {scrolltop: 0, lineHeight: 0};
   }
@@ -871,9 +872,11 @@ export class Editor extends React.Component {
       case " ":
         if (e.ctrlKey) {
           e.preventDefault();
-          if ((model.disableSuggestionOverText || model.displaySuggestion)) {
+          if ((model.disableSuggestionOverText)) {
             model.editorAutocompleteHandler({ctrlSpace: true});
             model.didUpdate();
+          } if (model.displaySuggestion) {
+            model.selectSuggestion();
           } else {
             model.showSuggestion();
           }
@@ -1002,6 +1005,14 @@ export class Editor extends React.Component {
         //TODO if previous input without other keydown (even move)is openChar then delete open and closeChar
         break;
       }
+    }
+  }
+  handleMouseUp(e) {
+    let {model} = this.props;
+    if (model.disableSuggestionOverText) {
+      this.editorAutocompleteEvent(e);
+    } else if (!model.displaySuggestion) {
+      model.showSuggestion();
     }
   }
   componentWillUnmount() {
@@ -1133,7 +1144,7 @@ export class Editor extends React.Component {
         ),
         h("div", {className: "editor-wrapper"},
           h("div", {ref: "editorMirror", className: "editor_container_mirror"}, highlighted.map(s => h("span", s.attributes, s.value))),
-          h("textarea", {id: "editor", autoComplete: "off", autoCorrect: "off", spellCheck: "false", autoCapitalize: "off", className: "editor_textarea", ref: "editor", onScroll: this.onScroll, onKeyUp: this.editorAutocompleteEvent, onMouseUp: this.editorAutocompleteEvent, onSelect: this.editorAutocompleteEvent, onInput: this.editorAutocompleteEvent, onKeyDown: this.handlekeyDown})
+          h("textarea", {id: "editor", autoComplete: "off", autoCorrect: "off", spellCheck: "false", autoCapitalize: "off", className: "editor_textarea", ref: "editor", onScroll: this.onScroll, onKeyUp: this.editorAutocompleteEvent, onMouseUp: this.handleMouseUp, onSelect: this.editorAutocompleteEvent, onInput: this.editorAutocompleteEvent, onKeyDown: this.handlekeyDown})
         )
       )
     );

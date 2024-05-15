@@ -387,14 +387,20 @@ class Model {
     if (!this.autocompleteResults || !this.autocompleteResults.results || this.autocompleteResults.results.length == 0) {
       return;
     }
+    let selStart = this.editor.selectionStart;
+    let selEnd = this.editor.selectionEnd;
+    let searchTerm = selStart != selEnd
+      ? this.editor.value.substring(selStart, selEnd)
+      : this.editor.value.substring(0, selStart).match(/[a-zA-Z0-9_.]*$/)[0];
+    selStart = selEnd - searchTerm.length;
+    let ar = this.autocompleteResults.results;
     if (this.autocompleteResults.isField && this.activeSuggestion == -1) {
-      let ar = this.autocompleteResults.results
+      ar = ar
         .filter(r => r.autocompleteType == "fieldName")
-        .map(r => this.autocompleteResults.contextPath + r.value)
-        .toArray();
+        .map((r, i, l) => this.autocompleteResults.contextPath + r.value + (i != l.length - 1 ? r.suffix : ""));
       if (ar.length > 0) {
         this.editor.focus();
-        this.editor.setRangeText(ar.join(", ") + " ", selStart - this.autocompleteResults.contextPath.length, selEnd, "end");
+        this.editor.setRangeText(ar.join(""), selStart - this.autocompleteResults.contextPath.length, selEnd, "end");
       }
       return;
     }
@@ -405,13 +411,6 @@ class Model {
 
     //by default auto complete the first item
     let idx = this.activeSuggestion > -1 ? this.activeSuggestion : 0;
-    let ar = this.autocompleteResults.results;
-    let selStart = this.editor.selectionStart;
-    let selEnd = this.editor.selectionEnd;
-    let searchTerm = selStart != selEnd
-      ? this.editor.value.substring(selStart, selEnd)
-      : this.editor.value.substring(0, selStart).match(/[a-zA-Z0-9_.]*$/)[0];
-    selStart = selEnd - searchTerm.length;
 
     this.editor.focus();
     this.editor.setRangeText(ar[idx].value + ar[idx].suffix, selStart, selEnd, "end");
@@ -1023,7 +1022,7 @@ class Model {
       return;
     } else {
       // Autocomplete field names and functions
-      /*if (ctrlSpace) {
+      if (ctrlSpace) {
         let ar = contextSobjectDescribes
           .flatMap(sobjectDescribe => sobjectDescribe.fields)
           .filter(field => field.name.toLowerCase().includes(searchTerm.toLowerCase()) || field.label.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -1035,7 +1034,7 @@ class Model {
         }
         vm.editorAutocompleteHandler();
         return;
-      }*/
+      }
       vm.autocompleteResults = {
         sobjectName,
         isField: true,
