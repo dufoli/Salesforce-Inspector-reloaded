@@ -4,7 +4,7 @@ import {getAllFieldSetupLinks} from "./setup-links.js";
 import {setupLinks} from "./links.js";
 
 let h = React.createElement;
-
+let appElement;
 {
   parent.postMessage({
     insextInitRequest: true,
@@ -30,6 +30,8 @@ let h = React.createElement;
         }, "*");
       } else if (e.data.updateLocalStorage) {
         localStorage.setItem(e.data.key, e.data.value);
+      } else if (e.data.shortcut) {
+        window.appElement.onShortcutKey(e.data.shortcut);
       }
     }
   });
@@ -132,6 +134,7 @@ class App extends React.PureComponent {
     this.onChangeApi = this.onChangeApi.bind(this);
     this.onContextRecordChange = this.onContextRecordChange.bind(this);
     this.updateReleaseNotesViewed = this.updateReleaseNotesViewed.bind(this);
+    window.appElement = this;
   }
   onContextRecordChange(e) {
     let {sfHost} = this.props;

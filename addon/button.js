@@ -358,6 +358,18 @@ function initButton(sfHost, inInspector) {
 
     popupWrapper.appendChild(resizeHandler);
     rootEl.appendChild(popupWrapper);
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key == "Control" || e.key == "Shift" || e.key == "Alt" || e.key == "Meta" || e.key == "Escape") {
+        return;
+      }
+      if (e.ctrlKey && e.shiftKey) {
+        popupEl.contentWindow.postMessage({
+          shortcut: {key: e.key.toLowerCase(), shiftKey: e.shiftKey, ctrlKey: e.ctrlKey}
+        }, "*");
+      }
+    });
+
     // Function to handle copy action
     function copy(e) {
       // Retrieve the text content of the target element triggered by the event
