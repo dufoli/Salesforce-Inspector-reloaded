@@ -124,7 +124,7 @@ textarea[hidden], div[hidden] {
   display: none !important;
 }
 
-.help-text {
+.help-text, .variable-block {
   background: #fff;
   border: 1px solid #DDDBDA;
   padding: 0 15px;
@@ -160,11 +160,23 @@ textarea[hidden], div[hidden] {
 }
 
 .result-text {
+  outline: none;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid #DDDBDA;
   flex: 1 1 0;
   resize: none;
   white-space: pre;
 }
-
+.conf-error {
+  color: #a00;
+  margin-left: 12px;
+  display: flex;
+  align-items: center;
+}
+.confError {
+  box-shadow: 0 0 3px 1px #a00;
+}
 .area {
   background-color: #F8F8F8;
   padding: 8px 12px;
@@ -321,13 +333,6 @@ option[value="null"][disabled] {
   display: none;
 }
 
-textarea[readonly] {
-  outline: none;
-  border-radius: 0;
-  border: none;
-  border-top: 1px solid #DDDBDA;
-}
-
 .top-btn {
   margin-left: auto;
   text-decoration: none;
@@ -360,7 +365,9 @@ textarea[readonly] {
 #options-btn .icon {
   -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/settings.svg');
 }
-
+#variable-btn .icon {
+  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/variable.svg');
+}
 
 #spinner {
   left: -15px;
