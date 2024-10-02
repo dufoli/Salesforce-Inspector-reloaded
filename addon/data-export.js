@@ -2,6 +2,7 @@
 import {sfConn, apiVersion} from "./inspector.js";
 /* global initButton */
 import {Enumerable, DescribeInfo, copyToClipboard, ScrollTable, TableModel, s, Editor} from "./data-load.js";
+import {csvParse} from "./csv-parse.js";
 
 class QueryHistory {
   constructor(storageKey, max) {
@@ -79,6 +80,10 @@ class Model {
     this.sfLink = "https://" + sfHost;
     this.spinnerCount = 0;
     this.showHelp = false;
+    this.showVariable = false;
+    this.variableData = [];
+    this.variableDataError = "";
+    this.batchSize = 1;
     this.userInfo = "...";
     this.winInnerHeight = 0;
     this.queryAll = false;
@@ -179,6 +184,27 @@ class Model {
   }
   toggleHelp() {
     this.showHelp = !this.showHelp;
+  }
+  toggleVariable() {
+    this.showVariable = !this.showVariable;
+  }
+  variableMessage() {
+    return "Paste 1 variable by line here";
+  }
+  setVariableData(text) {
+    try {
+      //only get first column for cell
+      this.variableData = csvParse(text, "\t").map(c => c[0]);
+    } catch (e) {
+      this.variableDataError = "Error: " + e.message;
+      return;
+    }
+  }
+  batchSizeError() {
+    if (!(+this.batchSize > 0)) { // This also handles NaN
+      return "Error: Must be a positive number";
+    }
+    return "";
   }
   toggleExpand() {
     this.expandAutocomplete = !this.expandAutocomplete;
@@ -1530,7 +1556,15 @@ class Model {
     finalQuery += remaining;
     return finalQuery;
   }
-
+  sliceArrayIntoGroups(arr, size) {
+    let step = 0;
+    let sliceArr = [];
+    let len = arr.length;
+    while (step < len) {
+      sliceArr.push(arr.slice(step, step += size));
+    }
+    return sliceArr;
+  }
   doExport() {
     let vm = this; // eslint-disable-line consistent-this
     let exportedData = new RecordTable(vm);
@@ -1540,6 +1574,23 @@ class Model {
     vm.initPerf();
     let query = this.cleanupQuery(vm.editor.value);
     vm.columnIndex = this.extractColumnFromQuery(query);
+    function onError(error) {
+      console.error(error);
+      if (error && error.name == "Unauthorized") {
+        let rootEl = document.getElementById("insext");
+        let popupEl = document.getElementsByClassName("insext-popup-iframe")[0];
+        popupEl.contentWindow.postMessage({
+          showInvalidTokenBanner: true
+        }, "*");
+        rootEl.classList.add("insext-active");
+      }
+      vm.isWorking = false;
+      vm.exportStatus = "Error";
+      vm.exportError = "UNEXPECTED EXCEPTION:" + error;
+      vm.exportedData = null;
+      vm.markPerf();
+      vm.updatedExportedData();
+    }
     function batchHandler(batch) {
       return batch.catch(err => {
         if (err.name == "AbortError") {
@@ -1633,24 +1684,18 @@ class Model {
         return null;
       });
     }
-    vm.spinFor(batchHandler(vm.callRest(query))
-      .catch(error => {
-        console.error(error);
-        if (error && error.name == "Unauthorized") {
-          let rootEl = document.getElementById("insext");
-          let popupEl = document.getElementsByClassName("insext-popup-iframe")[0];
-          popupEl.contentWindow.postMessage({
-            showInvalidTokenBanner: true
-          }, "*");
-          rootEl.classList.add("insext-active");
-        }
-        vm.isWorking = false;
-        vm.exportStatus = "Error";
-        vm.exportError = "UNEXPECTED EXCEPTION:" + error;
-        vm.exportedData = null;
-        vm.markPerf();
-        vm.updatedExportedData();
-      }));
+    if (vm.variableData && vm.variableData.length > 0) {
+      vm.spinFor(Promise.all(vm.sliceArrayIntoGroups(vm.variableData, vm.batchSize).map(range => {
+        let subquery = query.replace("$1", range.join(","));
+        return batchHandler(vm.callRest(subquery))
+          .catch(onError);
+      }
+      )));
+    } else {
+      vm.spinFor(batchHandler(vm.callRest(query))
+        .catch(onError));
+    }
+
     vm.setResultsFilter("");
     vm.isWorking = true;
     vm.exportStatus = "Exporting...";
@@ -1953,6 +1998,9 @@ class App extends React.Component {
     this.onStopExport = this.onStopExport.bind(this);
     this.onClick = this.onClick.bind(this);
     this.onSaveAll = this.onSaveAll.bind(this);
+    this.onToggleVariable = this.onToggleVariable.bind(this);
+    this.onDataPaste = this.onDataPaste.bind(this);
+    this.onBatchSizeChange = this.onBatchSizeChange.bind(this);
   }
   onSaveAll() {
     let {model} = this.props;
@@ -2113,6 +2161,22 @@ class App extends React.Component {
     model.stopExport();
     model.didUpdate();
   }
+  onToggleVariable() {
+    let {model} = this.props;
+    model.toggleVariable();
+    model.didUpdate();
+  }
+  onDataPaste(e) {
+    let {model} = this.props;
+    let text = e.clipboardData.getData("text/plain");
+    model.setVariableData(text);
+    model.didUpdate();
+  }
+  onBatchSizeChange(e){
+    let {model} = this.props;
+    model.batchSize = e.target.value;
+    model.didUpdate();
+  }
   componentDidMount() {
     let {model} = this.props;
     model.autocompleteResultBox = this.refs.autocompleteResultBox;
@@ -2182,6 +2246,9 @@ class App extends React.Component {
             h("span", {className: "slds-assistive-text"}),
             h("div", {className: "slds-spinner__dot-a"}),
             h("div", {className: "slds-spinner__dot-b"}),
+          ),
+          h("a", {href: "#", className: "top-btn", id: "variable-btn", title: "Variable-btn", onClick: this.onToggleVariable},
+            h("div", {className: "icon"})
           ),
           h("a", {href: "options.html?" + hostArg, className: "top-btn", id: "options-btn", title: "Option", target: "_blank"},
             h("div", {className: "icon"})
@@ -2258,11 +2325,20 @@ class App extends React.Component {
         ),
         h("div", {hidden: !model.showHelp, className: "help-text"},
           h("h3", {}, "Export Help"),
-          h("p", {}, "Use for quick one-off data exports. Enter a ", h("a", {href: "http://www.salesforce.com/us/developer/docs/soql_sosl/", target: "_blank"}, "SOQL query"), " in the box above and press Export."),
+          h("p", {}, "Use for quick one-off data exports. Enter a ", h("a", {href: "http://www.salesforce.com/us/developer/docs/soql_sosl/", target: "_blank"}, "SOQL or SOSL query"), " in the box above and press Export."),
           h("p", {}, "Press Ctrl+Space to insert all field name autosuggestions or to load suggestions for field values."),
           h("p", {}, "Press Ctrl+Enter or F5 to execute the export."),
-          h("p", {}, "Supports the full SOQL language. The columns in the CSV output depend on the returned data. Using subqueries may cause the output to grow rapidly. Bulk API is not supported. Large data volumes may freeze or crash your browser.")
-        )
+          h("p", {}, "Supports the full SOQL/SOSL language and graphql. The columns in the CSV output depend on the returned data. Using subqueries may cause the output to grow rapidly. Bulk API is not supported. Large data volumes may freeze or crash your browser.")
+        ),
+        h("div", {hidden: !model.showVariable, className: "variable-block"},
+          h("h3", {}, "batch Parameters"),
+          h("p", {}, "Paste Parameter data of SOQL then use it with $1 in SOQL query. Do not forget quote \"'\" around text field."),
+          h("span", {className: "conf-label"}, "Batch size"),
+          h("input", {type: "number", value: model.batchSize, onChange: this.onBatchSizeChange, className: (model.batchSizeError() ? "confError" : "") + " batch-size"}),
+          h("textarea", {id: "data", value: model.variableMessage(), onPaste: this.onDataPaste, className: model.dataError ? "confError" : "", readOnly: true, rows: 1}),
+          h("div", {className: "conf-error", hidden: !model.variableDataError}, model.variableDataError),
+          model.variableData.length > 0 ? model.variableData.slice(0, 4).concat(["..."]).map(c => h("div", {}, c)) : ""
+        ),
       ),
       h("div", {className: "area", id: "result-area"},
         h("div", {className: "result-bar"},
