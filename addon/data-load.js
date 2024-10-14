@@ -745,7 +745,7 @@ export class TableModel {
       } else {
         cell.links.push({withIcon: true, href: cell.recordId, label: "Copy Id", className: "copy-id", action: "copy"});
       }
-      cell.links.push({withIcon: true, href: cell.recordId, label: "Edit", className: "edit-record", action: "edit"});
+      cell.links.push({withIcon: true, href: cell.recordId, label: "Edit", title: "Double click on cell to edit", className: "edit-record", action: "edit"});
       self.didUpdate();
     }
     if (cell.showMenu) {
@@ -963,6 +963,9 @@ class ScrollTableCell extends React.Component {
             }
             arr.push(l.label);
             let attributes = {href: l.href, target: "_blank", className: l.className, key: "link" + idx};
+            if (l.title) {
+              attributes.title = l.title;
+            }
             if (l.action == "copy") {
               attributes.onClick = this.copyToClipboard;
             } else if (l.action == "edit") {
