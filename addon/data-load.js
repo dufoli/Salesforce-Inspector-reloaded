@@ -1280,9 +1280,15 @@ export class Editor extends React.Component {
           if (selectionStart != selectionEnd) {
             model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
           } else if (
+            // If parenthesis, brace or bracket
             (e.key !== "'" && e.key !== "\"")
-            || (selectionEnd + 1 < model.editor.value.length && /[\w|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2)))
-            || selectionEnd + 1 === model.editor.value.length) {
+            // Or one side is a whitespace or a carriage return
+            || (selectionEnd + 1 < model.editor.value.length && /[\n|\s]/.test(model.editor.value.substring(selectionEnd + 1, selectionEnd + 2)))
+            || (selectionEnd > 0 && /[\n|\s]/.test(model.editor.value.substring(selectionEnd - 1, selectionEnd)))
+            // Or end of document
+            || selectionEnd + 1 === model.editor.value.length
+            // Or start of document
+            || selectionEnd === 0) {
             model.editor.setRangeText(closeChar, selectionEnd + 1, selectionEnd + 1, "preserve");
           }
         }
