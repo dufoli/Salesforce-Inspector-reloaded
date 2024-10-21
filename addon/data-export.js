@@ -131,7 +131,9 @@ class Model {
         "SELECT Id FROM WHERE",
         "SELECT Id FROM WHERE IN",
         "SELECT Id FROM WHERE LIKE",
-        "SELECT Id FROM WHERE ORDER BY"
+        "SELECT Id FROM WHERE ORDER BY",
+        "FIND {} IN Name Fields RETURNING Account(Name)",
+        "{ uiapi { query { Account { edges { node { Name { value } } } } } } }"
       ];
     }
 
@@ -325,6 +327,23 @@ class Model {
     if (this.queryTooling) args.set("apitype", "Tooling");
 
     window.open("data-import.html?" + args, getLinkTarget(e));
+  }
+  getQueryMethod() {
+    if (this.isSearchMode()) {
+      return "search";
+    } else if (this.isGraphMode()) {
+      return "graphql";
+    } else if (this.queryTooling) {
+      return "tooling/query";
+    } else if (this.queryAll) {
+      return "queryAll";
+    } else {
+      return "query";
+    }
+  }
+  isGraphMode() {
+    //if query start with "f" like "find" instead of "select"
+    return this.editor != null && this.editor.value != null ? this.editor.value.trim().toLowerCase().startsWith("{") : false;
   }
   isSearchMode() {
     //if query start with "f" like "find" instead of "select"
@@ -577,8 +596,8 @@ class Model {
         if (beforeSel.startsWith("(")) { //field
           if (beforeSel.indexOf(")") == -1) {
             let isAfterWhere = false;
-            let fromKeywordMatch = /\s+where\s+([a-z0-9_]*)/i.exec(beforeSel);
-            if (fromKeywordMatch) {
+            let whereKeywordMatch = /\s+where\s+([a-z0-9_]*)/i.exec(beforeSel);
+            if (whereKeywordMatch) {
               isAfterWhere = true;
             }
             this.autocompleteField(vm, ctrlSpace, sobjectName, isAfterWhere);
@@ -1511,6 +1530,7 @@ class Model {
     finalQuery += remaining;
     return finalQuery;
   }
+
   doExport() {
     let vm = this; // eslint-disable-line consistent-this
     let exportedData = new RecordTable(vm);
@@ -1520,7 +1540,6 @@ class Model {
     vm.initPerf();
     let query = this.cleanupQuery(vm.editor.value);
     vm.columnIndex = this.extractColumnFromQuery(query);
-    let queryMethod = vm.isSearchMode() ? "search" : (exportedData.isTooling ? "tooling/query" : vm.queryAll ? "queryAll" : "query");
     function batchHandler(batch) {
       return batch.catch(err => {
         if (err.name == "AbortError") {
@@ -1534,6 +1553,24 @@ class Model {
           exportedData.addToTable(data.searchRecords);
           recs = exportedData.records.length;
           total = exportedData.totalSize;
+        } else if (vm.isGraphMode()) {
+          let records = [];
+          for (const sobjectType in data.data.uiapi.query) {
+            data.data.uiapi.query[sobjectType].edges.forEach(e => {
+              let result = {};
+              result.attributes = {type: sobjectType};
+              for (const prop in e.node) {
+                if (typeof e.node[prop] === "object") {
+                  result[prop] = e.node[prop].value;
+                }
+                result[prop] = e.node[prop];
+              }
+              records.push(result);
+            });
+          }
+          exportedData.addToTable(records);
+          recs = exportedData.records.length;
+          total = exportedData.totalSize;
         } else {
           exportedData.addToTable(data.records);
           recs = exportedData.records.length;
@@ -1543,7 +1580,7 @@ class Model {
             total = data.totalSize;
           }
         }
-        if (!vm.isSearchMode() && !data.done) {
+        if (!vm.isSearchMode() && !vm.isGraphMode() && !data.done) {
           let pr = batchHandler(sfConn.rest(data.nextRecordsUrl, {progressHandler: vm.exportProgress}));
           vm.isWorking = true;
           vm.exportStatus = `Exporting... Completed ${recs} of ${total} record${s(total)}.`;
@@ -1596,7 +1633,7 @@ class Model {
         return null;
       });
     }
-    vm.spinFor(batchHandler(sfConn.rest("/services/data/v" + apiVersion + "/" + queryMethod + "/?q=" + encodeURIComponent(query), {progressHandler: vm.exportProgress}))
+    vm.spinFor(batchHandler(vm.callRest(query))
       .catch(error => {
         console.error(error);
         if (error && error.name == "Unauthorized") {
@@ -1623,6 +1660,14 @@ class Model {
   }
   stopExport() {
     this.exportProgress.abort();
+  }
+  callRest(query){
+    let queryMethod = this.getQueryMethod();
+    if (this.isGraphMode()){
+      return sfConn.rest("/services/data/v" + apiVersion + "/" + queryMethod, {method: "POST", body: {"query": "query Objects " + query}}, {progressHandler: this.exportProgress});
+    } else {
+      return sfConn.rest("/services/data/v" + apiVersion + "/" + queryMethod + "/?q=" + encodeURIComponent(query), {progressHandler: this.exportProgress});
+    }
   }
   doQueryPlan(){
     let vm = this; // eslint-disable-line consistent-this
