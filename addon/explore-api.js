@@ -1,6 +1,7 @@
 /* global React ReactDOM */
 import {sfConn, apiVersion} from "./inspector.js";
 /* global initButton */
+import {QueryHistory} from "./data-load.js";
 
 class Model {
   constructor(sfHost, args) {
@@ -9,7 +10,18 @@ class Model {
     this.spinnerCount = 0;
     this.title = "API Request";
     this.userInfo = "...";
-
+    this.expandSavedOptions = false;
+    this.requestName = "";
+    function compare(a, b) {
+      return a.request == b.request && a.requestType == b.requestType && a.httpMethod == b.httpMethod && a.apiUrl == b.apiUrl && a.soapType == b.soapType && a.name == b.name;
+    }
+    function sort(a, b) {
+      return (a.request > b.request) ? 1 : ((b.request > a.request) ? -1 : 0);
+    }
+    this.requestHistory = new QueryHistory("insextRequestHistory", 100, compare, sort);
+    this.selectedHistoryEntry = null;
+    this.savedHistory = new QueryHistory("insextSavedRequestHistory", 50, compare, sort);
+    this.selectedSavedEntry = null;
     this.apiResponse = null;
     this.selectedTextView = null;
     this.requestType = "REST";
@@ -39,7 +51,19 @@ class Model {
       let apiPromise = sfConn.rest(apiUrl, {withoutCache: true});
       this.performRequest(apiPromise);
     }
-
+    let requestTemplatesRawValue = localStorage.getItem("requestTemplates");
+    if (requestTemplatesRawValue && requestTemplatesRawValue != "[]") {
+      try {
+        this.requestTemplates = JSON.parse(requestTemplatesRawValue);
+      } catch (err) {
+        //try old format which do not support comments
+        this.requestTemplates = requestTemplatesRawValue.split("//");
+      }
+    } else {
+      this.requestTemplates = [
+        "{}"
+      ];
+    }
     this.spinFor(sfConn.soap(sfConn.wsdl(apiVersion, "Partner"), "getUserInfo", {}).then(res => {
       this.userInfo = res.userFullName + " / " + res.userName + " / " + res.organizationName;
     }));
@@ -91,6 +115,7 @@ class Model {
     return "explore-api.html?" + args;
   }
   performRequest(apiPromise) {
+    this.requestHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, apiUrl: this.apiUrl, soapType: this.soapType});
     this.spinFor(apiPromise.then(result => {
       this.parseResponse(result, "Success");
     }, err => {
@@ -326,6 +351,51 @@ class Model {
     });
     this.didUpdate();
   }
+  toggleSavedOptions() {
+    this.expandSavedOptions = !this.expandSavedOptions;
+  }
+  setRequestName(value) {
+    this.requestName = value;
+  }
+  selectHistoryEntry() {
+    if (this.selectedHistoryEntry != null) {
+      this.requestType = this.selectedHistoryEntry.requestType;
+      this.httpMethod = this.selectedHistoryEntry.httpMethod;
+      this.soapType = this.selectedHistoryEntry.soapType;
+      this.payload = this.selectedHistoryEntry.request;
+      this.apiUrl = this.selectedHistoryEntry.apiUrl;
+      this.selectedHistoryEntry = null;
+    }
+  }
+  selectRequestTemplate(val) {
+    this.payload = val.trimStart();
+    //this.editor.focus();
+  }
+  clearHistory() {
+    this.requestHistory.clear();
+  }
+  selectSavedEntry() {
+    if (this.selectedSavedEntry != null) {
+      this.requestType = this.selectedSavedEntry.requestType;
+      this.httpMethod = this.selectedSavedEntry.httpMethod;
+      this.payload = this.selectedSavedEntry.request;
+      this.soapType = this.selectedSavedEntry.soapType;
+      this.apiUrl = this.selectedSavedEntry.apiUrl;
+      this.selectedSavedEntry = null;
+    }
+  }
+  clearSavedHistory() {
+    this.savedHistory.clear();
+  }
+  addToHistory() {
+    this.savedHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, apiUrl: this.apiUrl, soapType: this.soapType, name: this.requestName});
+  }
+  removeFromHistory() {
+    this.savedHistory.remove({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, apiUrl: this.apiUrl, soapType: this.soapType, name: this.requestName});
+  }
+  /*getRequestToSave() {
+    return this.requestName != "" ? this.requestName + ":" + this.payload : this.payload;
+  }*/
   setHttpMethod(httpMethod) {
     this.httpMethod = httpMethod;
     this.didUpdate();
@@ -403,6 +473,15 @@ class App extends React.Component {
     this.setUrl = this.setUrl.bind(this);
     this.setPayload = this.setPayload.bind(this);
     this.onExecute = this.onExecute.bind(this);
+    this.onSelectHistoryEntry = this.onSelectHistoryEntry.bind(this);
+    this.onSelectRequestTemplate = this.onSelectRequestTemplate.bind(this);
+    this.onClearHistory = this.onClearHistory.bind(this);
+    this.onSelectSavedEntry = this.onSelectSavedEntry.bind(this);
+    this.onAddToHistory = this.onAddToHistory.bind(this);
+    this.onRemoveFromHistory = this.onRemoveFromHistory.bind(this);
+    this.onClearSavedHistory = this.onClearSavedHistory.bind(this);
+    this.onSetRequestName = this.onSetRequestName.bind(this);
+    this.onToggleSavedOptions = this.onToggleSavedOptions.bind(this);
   }
   setRequestType(e) {
     let {model} = this.props;
@@ -436,6 +515,70 @@ class App extends React.Component {
   cleanCell(cell){
     return ((!cell || cell.toString() == "[object Object]") ? "" : cell.toString());
   }
+
+  onSelectHistoryEntry(e) {
+    let {model} = this.props;
+    model.selectedHistoryEntry = JSON.parse(e.target.value);
+    model.selectHistoryEntry();
+    model.didUpdate();
+  }
+  onSelectRequestTemplate(e) {
+    let {model} = this.props;
+    model.selectRequestTemplate(e.target.value);
+    model.didUpdate();
+  }
+  onClearHistory(e) {
+    e.preventDefault();
+    let r = confirm("Are you sure you want to clear the request history?");
+    if (r == true) {
+      let {model} = this.props;
+      model.clearHistory();
+      model.didUpdate();
+    }
+  }
+  onSelectSavedEntry(e) {
+    let {model} = this.props;
+    model.selectedSavedEntry = JSON.parse(e.target.value);
+    model.selectSavedEntry();
+    model.didUpdate();
+  }
+  onAddToHistory(e) {
+    e.preventDefault();
+    let {model} = this.props;
+    model.addToHistory();
+    model.didUpdate();
+  }
+  onRemoveFromHistory(e) {
+    e.preventDefault();
+    let r = confirm("Are you sure you want to remove this saved request?");
+    let {model} = this.props;
+    if (r == true) {
+      model.removeFromHistory();
+    }
+    model.toggleSavedOptions();
+    model.didUpdate();
+  }
+  onClearSavedHistory(e) {
+    e.preventDefault();
+    let r = confirm("Are you sure you want to remove all saved requests?");
+    let {model} = this.props;
+    if (r == true) {
+      model.clearSavedHistory();
+    }
+    model.toggleSavedOptions();
+    model.didUpdate();
+  }
+  onSetRequestName(e) {
+    let {model} = this.props;
+    model.setRequestName(e.target.value);
+    model.didUpdate();
+  }
+  onToggleSavedOptions(e) {
+    e.preventDefault();
+    let {model} = this.props;
+    model.toggleSavedOptions();
+    model.didUpdate();
+  }
   render() {
     let {model} = this.props;
     document.title = model.title;
@@ -460,6 +603,35 @@ class App extends React.Component {
         ),
       ),
       h("div", {className: "area", id: "query-area"},
+        h("div", {className: "query-controls"},
+          h("h1", {}, "Execute Request"),
+          h("div", {className: "query-history-controls"},
+            h("select", {value: "", onChange: this.onSelectRequestTemplate, className: "request-history", title: "Check documentation to customize templates"},
+              h("option", {value: null, disabled: true, defaultValue: true, hidden: true}, "Templates"),
+              model.requestTemplates.map(q => h("option", {key: q, value: q}, q))
+            ),
+            h("div", {className: "button-group"},
+              h("select", {value: JSON.stringify(model.selectedHistoryEntry), onChange: this.onSelectHistoryEntry, className: "request-history"},
+                h("option", {value: JSON.stringify(null), disabled: true}, "Request History"),
+                model.requestHistory.list.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, (q.httpMethod + " " + q.apiUrl + " " + q.request).substring(0, 300)))
+              ),
+              h("button", {onClick: this.onClearHistory, title: "Clear Request History"}, "Clear")
+            ),
+            h("div", {className: "pop-menu saveOptions", hidden: !model.expandSavedOptions},
+              h("a", {href: "#", onClick: this.onRemoveFromHistory, title: "Remove request from saved history"}, "Remove Saved Request"),
+              h("a", {href: "#", onClick: this.onClearSavedHistory, title: "Clear saved history"}, "Clear Saved Requests")
+            ),
+            h("div", {className: "button-group"},
+              h("select", {value: JSON.stringify(model.selectedSavedEntry), onChange: this.onSelectSavedEntry, className: "request-history"},
+                h("option", {value: JSON.stringify(null), disabled: true}, "Saved Requests"),
+                model.savedHistory.list.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, q.request.substring(0, 300)))
+              ),
+              h("input", {placeholder: "Request Label", type: "save", value: model.requestName, onInput: this.onSetRequestName}),
+              h("button", {onClick: this.onAddToHistory, title: "Add request to saved history"}, "Save Request"),
+              h("button", {className: model.expandSavedOptions ? "toggle contract" : "toggle expand", title: "Show More Options", onClick: this.onToggleSavedOptions}, h("div", {className: "button-toggle-icon"}))
+            ),
+          ),
+        ),
         h("div", {className: "form-line"},
           h("label", {className: "form-input"},
             h("span", {className: "form-label"}, "Type")),
@@ -487,7 +659,7 @@ class App extends React.Component {
             h("span", {className: "form-label"}, "Payload")),
           h("span", {className: "form-value"},
             h("textarea", {name: "httpBody", value: model.payload, onChange: this.setPayload}))),
-        //TODO headers
+        //TODO HTTP headers
         h("div", {hidden: model.requestType != "REST", className: "form-line"},
           h("label", {className: "form-input"},
             h("span", {className: "form-label"}, "URL")),

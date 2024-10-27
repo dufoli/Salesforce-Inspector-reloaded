@@ -163,12 +163,12 @@ export function copyToClipboard(value) {
   }
 }
 export class QueryHistory {
-  constructor(storageKey, max, compare, sort) {
+  constructor(storageKey, max, compare, sorter) {
     this.storageKey = storageKey;
     this.max = max;
     this.list = this._get();
     this.compare = compare;
-    this.sort = sort;
+    this.sorter = sorter;
   }
 
   _get() {
@@ -220,7 +220,7 @@ export class QueryHistory {
   sort(storageKey, history) {
     //sort only saved query not history
     if (storageKey.startsWith("insextSaved")) {
-      history.sort(this.sort);
+      history.sort(this.sorter);
     }
     this.list = history;
   }

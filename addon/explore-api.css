@@ -6,7 +6,7 @@ body {
   font-size: 11px;
   box-sizing: border-box;
 }
-select {
+.form-line select {
   width: 100%;
 }
 #result-table textarea {

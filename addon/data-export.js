@@ -172,8 +172,8 @@ class Model {
       this.selectedHistoryEntry = null;
     }
   }
-  selectQueryTemplate() {
-    this.editor.value = this.selectedQueryTemplate.trimStart();
+  selectQueryTemplate(val) {
+    this.editor.value = val.trimStart();
     this.editor.focus();
     let indexPos = this.editor.value.toLowerCase().indexOf("from ");
     if (indexPos !== -1) {
@@ -1976,8 +1976,7 @@ class App extends React.Component {
   }
   onSelectQueryTemplate(e) {
     let {model} = this.props;
-    model.selectedQueryTemplate = e.target.value;
-    model.selectQueryTemplate();
+    model.selectQueryTemplate(e.target.value);
     model.didUpdate();
   }
   onClearHistory(e) {
