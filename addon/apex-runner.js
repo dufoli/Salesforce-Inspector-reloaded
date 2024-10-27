@@ -126,13 +126,9 @@ class Model {
       this.selectedHistoryEntry = null;
     }
   }
-  selectScriptTemplate() {
-    this.editor.value = this.selectedScriptTemplate.trimStart();
+  selectScriptTemplate(val) {
+    this.editor.value = val.trimStart();
     this.editor.focus();
-    let indexPos = this.editor.value.toLowerCase().indexOf("from ");
-    if (indexPos !== -1) {
-      this.editor.setRangeText("", indexPos + 5, indexPos + 5, "end");
-    }
   }
   clearHistory() {
     this.scriptHistory.clear();
@@ -1049,8 +1045,7 @@ class App extends React.Component {
   }
   onSelectScriptTemplate(e) {
     let {model} = this.props;
-    model.selectedScriptTemplate = e.target.value;
-    model.selectScriptTemplate();
+    model.selectScriptTemplate(e.target.value);
     model.didUpdate();
   }
   onClearHistory(e) {
