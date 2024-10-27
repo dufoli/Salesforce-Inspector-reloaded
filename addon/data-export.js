@@ -85,7 +85,6 @@ class Model {
     this.variableDataError = "";
     this.batchSize = 1;
     this.userInfo = "...";
-    this.winInnerHeight = 0;
     this.queryAll = false;
     this.queryTooling = false;
     this.autocompleteResults = {sobjectName: "", title: "\u00A0", results: []};
@@ -2189,12 +2188,6 @@ class App extends React.Component {
       }
     });
 
-    function resize() {
-      model.winInnerHeight = innerHeight;
-      model.didUpdate(); // Will call recalculateSize
-    }
-    addEventListener("resize", resize);
-    resize();
   }
   componentDidUpdate() {
     let {model} = this.props;

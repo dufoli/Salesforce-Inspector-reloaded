@@ -130,6 +130,27 @@
     z-index: 10000;
 }
 
+
+.whereItIsUsedButton {
+    right: 530px;
+    color: white;
+    border-left: var(--lwc-borderWidthThin, 1px) solid var(--slds-g-color-brand-base-10, var(--lwc-colorBackgroundInverse, rgb(0, 22, 57)));
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
+.whereItIsUsedButtonSandbox {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    top: 0px;
+}
+
+.whereItIsUsedButtonProd {
+    padding-top: 15px;
+    padding-bottom: 15px;
+    top: 0px;
+}
+
 .versionDetailsButton {
     right: 410px;
     color: white;

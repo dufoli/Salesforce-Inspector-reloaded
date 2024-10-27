@@ -78,6 +78,17 @@ function initButton(sfHost, inInspector) {
       (checkboxState != null) ? (overflowCheckbox.checked = checkboxState) : (overflowCheckbox.checked = true);
 
       // Create a new anchor to go to flow details
+      const whereItIsUsedButton = document.createElement("a");
+      whereItIsUsedButton.textContent = "Where it is used";
+      whereItIsUsedButton.classList.add("headerFixed");
+      whereItIsUsedButton.classList.add("whereItIsUsedButton");
+      if (currentUrl.includes("sandbox")){
+        whereItIsUsedButton.classList.add("whereItIsUsedButtonSandbox");
+      } else {
+        whereItIsUsedButton.classList.add("whereItIsUsedButtonProd");
+      }
+
+      // Create a new anchor to go to flow details
       const versionDetailsButton = document.createElement("a");
       versionDetailsButton.textContent = "Version Details";
       versionDetailsButton.classList.add("headerFixed");
@@ -123,12 +134,19 @@ function initButton(sfHost, inInspector) {
       // Append the <style> element to the <head> element
       head.appendChild(style);
       // Append the checkbox and label elements to the body of the document
+      headerFlow.appendChild(whereItIsUsedButton);
       headerFlow.appendChild(versionDetailsButton);
       headerFlow.appendChild(clearFlowButton);
       headerFlow.appendChild(overflowCheckbox);
       headerFlow.appendChild(overflowLabel);
       // Set the overflow property to "auto"
       overflowCheckbox.checked ? style.textContent = ".canvas {overflow : auto!important ; }" : style.textContent = ".canvas {overflow : hidden!important ; }";
+
+      whereItIsUsedButton.addEventListener("click", () => {
+        popupEl.contentWindow.postMessage({
+          whereFlowIsUsed: JSON.stringify({contextUrl: window.location.href})
+        }, "*");
+      });
 
       versionDetailsButton.addEventListener("click", () => {
         popupEl.contentWindow.postMessage({
