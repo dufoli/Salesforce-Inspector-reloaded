@@ -170,6 +170,8 @@ class App extends React.PureComponent {
     } else if (e.data.showFlowVersionDetails) {
       this.showFlowVersionDetails(JSON.parse(e.data.showFlowVersionDetails));
       return;
+    } else if (e.data.whereFlowIsUsed) {
+      this.whereFlowIsUsed(JSON.parse(e.data.whereFlowIsUsed));
     } else if (e.data.showInvalidTokenBanner) {
       //TODO use model to store if displayed or not.
       const containerToShow = document.getElementById("invalidTokenBanner");
@@ -189,6 +191,16 @@ class App extends React.PureComponent {
       res.records.forEach(recentItem => {
         let flowDefinitionId = recentItem.DefinitionId;
         window.open("https://" + this.props.sfHost + "/lightning/setup/Flows/page?address=%2F" + flowDefinitionId, "_blank");
+      });
+    });
+  }
+  async whereFlowIsUsed({contextUrl}) {
+    let flowId = this.getFlowId(contextUrl);
+    const browser = navigator.userAgent.includes("Chrome") ? "chrome" : "moz";
+    sfConn.rest("/services/data/v" + apiVersion + "/tooling/query/?q=SELECT+Definition.DeveloperName+FROM+Flow+WHERE+Id='" + flowId + "'", {method: "GET"}).then(res => {
+      res.records.forEach(async recentItem => {
+        let flowName = recentItem.Definition.DeveloperName;
+        window.open(browser + "-extension://" + chrome.i18n.getMessage("@@extension_id") + `/dependency.html?name=${flowName}&host=${this.props.sfHost}`, "_blank");
       });
     });
   }
