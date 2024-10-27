@@ -1,68 +1,7 @@
 /* global React ReactDOM */
 import {sfConn, apiVersion} from "./inspector.js";
 /* global initButton */
-import {Enumerable, DescribeInfo, ScrollTable, TableModel, Editor} from "./data-load.js";
-
-class ScriptHistory {
-  constructor(storageKey, max) {
-    this.storageKey = storageKey;
-    this.max = max;
-    this.list = this._get();
-  }
-
-  _get() {
-    let history;
-    try {
-      history = JSON.parse(localStorage[this.storageKey]);
-    } catch (e) {
-      // empty
-    }
-    if (!Array.isArray(history)) {
-      history = [];
-    }
-    // A previous version stored just strings. Skip entries from that to avoid errors.
-    history = history.filter(e => typeof e == "object");
-    this.sort(this.storageKey, history);
-    return history;
-  }
-
-  add(entry) {
-    let history = this._get();
-    let historyIndex = history.findIndex(e => e.script == entry.script);
-    if (historyIndex > -1) {
-      history.splice(historyIndex, 1);
-    }
-    history.splice(0, 0, entry);
-    if (history.length > this.max) {
-      history.pop();
-    }
-    localStorage[this.storageKey] = JSON.stringify(history);
-    this.sort(this.storageKey, history);
-  }
-
-  remove(entry) {
-    let history = this._get();
-    let historyIndex = history.findIndex(e => e.script == entry.script);
-    if (historyIndex > -1) {
-      history.splice(historyIndex, 1);
-    }
-    localStorage[this.storageKey] = JSON.stringify(history);
-    this.sort(this.storageKey, history);
-  }
-
-  clear() {
-    localStorage.removeItem(this.storageKey);
-    this.list = [];
-  }
-
-  sort(storageKey, history) {
-    //sort only saved script not history
-    if (storageKey === "insextSavedScriptHistory") {
-      history.sort((a, b) => (a.script > b.script) ? 1 : ((b.script > a.script) ? -1 : 0));
-    }
-    this.list = history;
-  }
-}
+import {Enumerable, DescribeInfo, ScrollTable, TableModel, Editor, QueryHistory} from "./data-load.js";
 
 class Model {
   constructor({sfHost, args}) {
@@ -93,9 +32,15 @@ class Model {
     this.executeError = null;
     this.logs = null;
     this.jobs = null;
-    this.scriptHistory = new ScriptHistory("insextScriptHistory", 100);
+    function compare(a, b) {
+      return a.script == b.script;
+    }
+    function sort(a, b) {
+      return (a.script > b.script) ? 1 : ((b.script > a.script) ? -1 : 0);
+    }
+    this.scriptHistory = new QueryHistory("insextScriptHistory", 100, compare, sort);
     this.selectedHistoryEntry = null;
-    this.savedHistory = new ScriptHistory("insextSavedScriptHistory", 50);
+    this.savedHistory = new QueryHistory("insextSavedScriptHistory", 50, compare, sort);
     this.selectedSavedEntry = null;
     this.expandAutocomplete = false;
     this.expandSavedOptions = false;

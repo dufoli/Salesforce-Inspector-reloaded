@@ -1,70 +1,8 @@
 /* global React ReactDOM */
 import {sfConn, apiVersion} from "./inspector.js";
 /* global initButton */
-import {Enumerable, DescribeInfo, copyToClipboard, ScrollTable, TableModel, s, Editor} from "./data-load.js";
+import {Enumerable, DescribeInfo, copyToClipboard, ScrollTable, TableModel, s, Editor, QueryHistory} from "./data-load.js";
 import {csvParse} from "./csv-parse.js";
-
-class QueryHistory {
-  constructor(storageKey, max) {
-    this.storageKey = storageKey;
-    this.max = max;
-    this.list = this._get();
-  }
-
-  _get() {
-    let history;
-    try {
-      history = JSON.parse(localStorage[this.storageKey]);
-    } catch (e) {
-      // empty
-    }
-    if (!Array.isArray(history)) {
-      history = [];
-    }
-    // A previous version stored just strings. Skip entries from that to avoid errors.
-    history = history.filter(e => typeof e == "object");
-    this.sort(this.storageKey, history);
-    return history;
-  }
-
-  add(entry) {
-    let history = this._get();
-    let historyIndex = history.findIndex(e => ((e.query == entry.query && (!entry.name || e.name == entry.name)) || e.query == e.name + ":" + e.query) && e.useToolingApi == entry.useToolingApi);
-    if (historyIndex > -1) {
-      history.splice(historyIndex, 1);
-    }
-    history.splice(0, 0, entry);
-    if (history.length > this.max) {
-      history.pop();
-    }
-    localStorage[this.storageKey] = JSON.stringify(history);
-    this.sort(this.storageKey, history);
-  }
-
-  remove(entry) {
-    let history = this._get();
-    //old and new format
-    let historyIndex = history.findIndex(e => ((e.query == entry.query && (!entry.name || e.name == entry.name)) || e.query == e.name + ":" + e.query) && e.useToolingApi == entry.useToolingApi);
-    if (historyIndex > -1) {
-      history.splice(historyIndex, 1);
-    }
-    localStorage[this.storageKey] = JSON.stringify(history);
-    this.sort(this.storageKey, history);
-  }
-
-  clear() {
-    localStorage.removeItem(this.storageKey);
-    this.list = [];
-  }
-
-  sort(storageKey, history) {
-    //sort only saved query not history
-    if (storageKey === "insextSavedQueryHistory") {
-      history.sort((a, b) => ((a.name ? a.name + a.query : a.query) > (b.name ? b.name + b.query : b.query)) ? 1 : (((b.name ? b.name + b.query : b.query) > (a.name ? a.name + a.query : a.query)) ? -1 : 0));
-    }
-    this.list = history;
-  }
-}
 
 class Model {
   constructor({sfHost, args}) {
@@ -93,9 +31,15 @@ class Model {
     this.exportStatus = "Ready";
     this.exportError = null;
     this.exportedData = null;
-    this.queryHistory = new QueryHistory("insextQueryHistory", 100);
+    function compare(a, b) {
+      return ((a.query == b.query && (!b.name || a.name == b.name)) || a.query == b.name + ":" + b.query) && a.useToolingApi == b.useToolingApi;
+    }
+    function sort(a, b) {
+      return ((a.name ? a.name + a.query : a.query) > (b.name ? b.name + b.query : b.query)) ? 1 : (((b.name ? b.name + b.query : b.query) > (a.name ? a.name + a.query : a.query)) ? -1 : 0);
+    }
+    this.queryHistory = new QueryHistory("insextQueryHistory", 100, compare, sort);
     this.selectedHistoryEntry = null;
-    this.savedHistory = new QueryHistory("insextSavedQueryHistory", 50);
+    this.savedHistory = new QueryHistory("insextSavedQueryHistory", 50, compare, sort);
     this.selectedSavedEntry = null;
     this.expandAutocomplete = false;
     this.expandSavedOptions = false;
