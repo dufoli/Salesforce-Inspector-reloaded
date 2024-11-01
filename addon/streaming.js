@@ -18,7 +18,7 @@ function RecordTable() {
       row[1] = record?.data?.event?.replayId || record?.event?.replayId;
       row[2] = record?.data?.event?.createdDate || (new Date()).toISOString();
       row[3] = record?.data?.event?.type || (record?.data?.event?.EventApiName) || (record?.event?.EventApiName);
-      row[4] = JSON.stringify(record);
+      row[4] = JSON.stringify(record, null, "  ");
       rt.records.push(record);
       rt.rowVisibilities.push(true);
       rt.table.push(row);
