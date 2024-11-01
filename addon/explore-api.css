@@ -9,6 +9,15 @@ body {
 .form-line select {
   width: 100%;
 }
+.status-success {
+  padding-left: 10px;
+}
+.status-error {
+  padding-left: 10px;
+}
+.textview-format {
+  min-width: 300px;
+}
 #result-table textarea {
   display:block;
   width: 100%;
