@@ -3,16 +3,26 @@ import {sfConn, apiVersion} from "./inspector.js";
 /* global initButton */
 import {ScrollTable, TableModel} from "./data-load.js";
 
-function RecordTable() {
+function RecordTable(vm) {
+  function cellToString(cell) {
+    if (cell == null) {
+      return "";
+    } else if (typeof cell == "object" && cell.attributes && cell.attributes.type) {
+      return "[" + cell.attributes.type + "]";
+    } else {
+      return "" + cell;
+    }
+  }
+  let isVisible = (row, filter) => !filter || row.some(cell => cellToString(cell).toLowerCase().includes(filter.toLowerCase()));
   let rt = {
     records: [],
     table: [["Channel", "ReplayId", "CreatedDate", "Event type", "Payload"]],
     rowVisibilities: [true],
     colVisibilities: [true, true, true, true, true],
-    countOfVisibleRecords: null,
     isTooling: false,
     totalSize: -1,
     addToTable(record) {
+      vm.eventTypes.add(record?.data?.event?.type || (record?.data?.event?.EventApiName) || (record?.event?.EventApiName));
       let row = new Array(5);
       row[0] = record.channel || (record?.event?.EventApiName);
       row[1] = record?.data?.event?.replayId || record?.event?.replayId;
@@ -20,8 +30,26 @@ function RecordTable() {
       row[3] = record?.data?.event?.type || (record?.data?.event?.EventApiName) || (record?.event?.EventApiName);
       row[4] = JSON.stringify(record, null, "  ");
       rt.records.push(record);
-      rt.rowVisibilities.push(true);
+      let filter = vm.resultsFilter;
+      rt.rowVisibilities.push(isVisible(row, filter));
       rt.table.push(row);
+    },
+    serialize: () => rt.getVisibleTable().map(row => row[4]).join("\r\n"),
+    updateVisibility() {
+      let filter = vm.resultsFilter;
+      for (let r = 1/* always show header */; r < rt.table.length; r++) {
+        rt.rowVisibilities[r] = isVisible(rt.table[r], filter);
+      }
+    },
+    getVisibleTable() {
+      if (vm.resultsFilter) {
+        let filteredTable = [];
+        for (let i = 0; i < rt.table.length; i++) {
+          if (rt.rowVisibilities[i]) { filteredTable.push(rt.table[i]); }
+        }
+        return filteredTable;
+      }
+      return rt.table;
     }
   };
   return rt;
@@ -37,8 +65,11 @@ class Model {
     this.spinnerCount = 0;
     this.errorMessages = [];
     this.args = args;
-    this.events = new RecordTable();
+    this.resultsFilter = "";
+    this.events = new RecordTable(this);
     this.isWorking = false;
+    this.selectedEventType = "";
+    this.eventTypes = new Set();
     this.activeChannels = [];
     this.executeError = null;
     this.pollId = 0;
@@ -304,6 +335,31 @@ class Model {
       }
     }
   }
+  updatedExportedData() {
+    this.resultTableCallback(this.events);
+  }
+  setResultsFilter(value) {
+    this.resultsFilter = value;
+    if (this.events == null) {
+      return;
+    }
+    // Recalculate visibility
+    this.events.updateVisibility();
+    this.updatedExportedData();
+  }
+  setEventType(value) {
+    this.selectedEventType = value;
+  }
+  downloadCsv() {
+    let downloadLink = document.createElement("a");
+    const date = new Date();
+    const timestamp = date.toISOString().replace(/[^0-9]/g, "");
+    downloadLink.download = `events${timestamp}.csv`;
+    let BOM = "\uFEFF";
+    let bb = new Blob([BOM, this.events.serialize()], {type: "text/plain;charset=utf-8"});
+    downloadLink.href = window.URL.createObjectURL(bb);
+    downloadLink.click();
+  }
   recalculateSize() {
     // Investigate if we can use the IntersectionObserver API here instead, once it is available.
     this.tableModel.viewportChange();
@@ -384,10 +440,43 @@ class Monitor extends React.Component {
   constructor(props) {
     super(props);
     this.model = props.model;
+    this.onResultsFilterInput = this.onResultsFilterInput.bind(this);
+    this.onSelectType = this.onSelectType.bind(this);
+    this.onDownloadCsv = this.onDownloadCsv.bind(this);
+  }
+  onResultsFilterInput(e) {
+    let {model} = this.props;
+    model.setResultsFilter(e.target.value);
+    model.didUpdate();
+  }
+  onSelectType(e) {
+    let {model} = this.props;
+    model.setEventType(e.target.value);
+    model.didUpdate();
+  }
+  onDownloadCsv() {
+    let {model} = this.props;
+    model.downloadCsv();
+    model.didUpdate();
   }
   render() {
     let {model} = this.props;
     return h("div", {className: "area", id: "result-area"},
+      h("div", {className: "result-bar"},
+        h("h1", {}, "Export Result"),
+        h("div", {className: "button-group"},
+          h("select", {value: model.selectedEventType, onChange: this.onSelectType, className: "query-history"},
+            h("option", {value: "", disabled: true}, "Event Type"),
+            Array.from(model.eventTypes).map(q => h("option", {key: q, value: q}, q))
+          ),
+          h("button", {onClick: this.onDownloadCsv, title: "Download events"},
+            h("svg", {className: "download-icon"},
+              h("use", {xlinkHref: "symbols.svg#download"})
+            )
+          ),
+          h("input", {placeholder: "Filter Results", type: "search", value: model.resultsFilter, onInput: this.onResultsFilterInput}),
+        ),
+      ),
       h("textarea", {className: "result-text", readOnly: true, value: model.executeError || "", hidden: model.executeError == null}),
       h(ScrollTable, {model: model.tableModel})
     );
