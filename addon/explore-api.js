@@ -19,9 +19,7 @@ class Model {
       return (a.request > b.request) ? 1 : ((b.request > a.request) ? -1 : 0);
     }
     this.requestHistory = new QueryHistory("insextRequestHistory", 100, compare, sort);
-    this.selectedHistoryEntry = null;
     this.savedHistory = new QueryHistory("insextSavedRequestHistory", 50, compare, sort);
-    this.selectedSavedEntry = null;
     this.apiResponse = null;
     this.selectedTextView = null;
     this.requestType = "REST";
@@ -61,7 +59,11 @@ class Model {
       }
     } else {
       this.requestTemplates = [
-        "{}"
+        {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: "/services/data/", name: "Services list"},
+        {requestType: "REST", httpMethod: "POST", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/sobjects/Account`, name: "Update account rest"},
+        {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/query/?q=SELECT+Id,+Name+FROM+Account+LIMIT+10`, name: "Select query"},
+        {requestType: "REST", httpMethod: "POST", request: "{ \"query\": \"query accounts { uiapi { query { Account { edges { node { Id  Name { value } } } } } } }\"}", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/graphql`, name: "Services list"},
+        {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/metadata/deployRequest/deployRequestId?includeDetails=true`, name: "Deploy status"},
       ];
     }
     this.spinFor(sfConn.soap(sfConn.wsdl(apiVersion, "Partner"), "getUserInfo", {}).then(res => {
@@ -230,6 +232,9 @@ class Model {
       if (tView.parent) {
         tView.columnList = [...tView.columnList, ...tView.parent.columnList];
       }
+      if (tView.rows && tView.rows.length == 0) {
+        continue;
+      }
       let table = [tView.columnList];
       // Add rows
       for (let row of tView.rows) {
@@ -275,6 +280,15 @@ class Model {
       // URLs to further explore the REST API, grouped by table columns
       apiGroupUrls: Object.entries(groupUrls).map(([groupKey, apiUrls]) => ({jsonPath: groupKey, apiUrls, label: apiUrls.length + " API requests, e.g. " + apiUrls[0]})),
     };
+    if (Array.isArray(result) && result.length == 1 && result[0] && result[0].errorCode) {
+      this.selectedTextView = textViews[0];
+    } else if (Array.isArray(result) && result.length < 100 && result[0] && result[0].url) {
+      this.selectedTextView = null;
+    } else if (textViews[0].value.length < 10000) {
+      this.selectedTextView = textViews[0];
+    } else {
+      this.selectedTextView = null;
+    }
     // Don't update selectedTextView. No radio button will be selected, leaving the text area blank.
     // The results can be quite large and take a long time to render, so we only want to render a result once the user has explicitly selected it.
   }
@@ -357,31 +371,35 @@ class Model {
   setRequestName(value) {
     this.requestName = value;
   }
-  selectHistoryEntry() {
-    if (this.selectedHistoryEntry != null) {
-      this.requestType = this.selectedHistoryEntry.requestType;
-      this.httpMethod = this.selectedHistoryEntry.httpMethod;
-      this.soapType = this.selectedHistoryEntry.soapType;
-      this.payload = this.selectedHistoryEntry.request;
-      this.apiUrl = this.selectedHistoryEntry.apiUrl;
-      this.selectedHistoryEntry = null;
+  selectHistoryEntry(selectedHistoryEntry) {
+    if (selectedHistoryEntry != null) {
+      this.requestType = selectedHistoryEntry.requestType;
+      this.httpMethod = selectedHistoryEntry.httpMethod;
+      this.soapType = selectedHistoryEntry.soapType;
+      this.payload = selectedHistoryEntry.request;
+      this.apiUrl = selectedHistoryEntry.apiUrl;
     }
   }
-  selectRequestTemplate(val) {
-    this.payload = val.trimStart();
+  selectRequestTemplate(selectedTemplate) {
+    if (selectedTemplate != null) {
+      this.requestType = selectedTemplate.requestType;
+      this.httpMethod = selectedTemplate.httpMethod;
+      this.payload = selectedTemplate.request;
+      this.soapType = selectedTemplate.soapType;
+      this.apiUrl = selectedTemplate.apiUrl;
+    }
     //this.editor.focus();
   }
   clearHistory() {
     this.requestHistory.clear();
   }
-  selectSavedEntry() {
-    if (this.selectedSavedEntry != null) {
-      this.requestType = this.selectedSavedEntry.requestType;
-      this.httpMethod = this.selectedSavedEntry.httpMethod;
-      this.payload = this.selectedSavedEntry.request;
-      this.soapType = this.selectedSavedEntry.soapType;
-      this.apiUrl = this.selectedSavedEntry.apiUrl;
-      this.selectedSavedEntry = null;
+  selectSavedEntry(selectedSavedEntry) {
+    if (selectedSavedEntry != null) {
+      this.requestType = selectedSavedEntry.requestType;
+      this.httpMethod = selectedSavedEntry.httpMethod;
+      this.payload = selectedSavedEntry.request;
+      this.soapType = selectedSavedEntry.soapType;
+      this.apiUrl = selectedSavedEntry.apiUrl;
     }
   }
   clearSavedHistory() {
@@ -449,7 +467,18 @@ class Model {
         this.performRequest(sfConn.soap(sfConn.wsdl(apiVersion, this.soapType), null, this.payload));
         break;
       case "REST":
-        this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "raw", body: ((this.httpMethod != "GET" && this.httpMethod != "DELETE") ? this.payload : null), withoutCache: true}));
+        try {
+          if (this.httpMethod != "GET" && this.httpMethod != "DELETE") {
+            let body = JSON.parse(this.payload);
+            this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "json", body: ((this.httpMethod != "GET" && this.httpMethod != "DELETE") ? body : null), withoutCache: true}));
+          } else {
+            this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, withoutCache: true}));
+          }
+        } catch (e) {
+          // ignore
+          this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "raw", body: ((this.httpMethod != "GET" && this.httpMethod != "DELETE") ? this.payload : null), withoutCache: true}));
+        }
+
         break;
       default:
         break;
@@ -482,6 +511,7 @@ class App extends React.Component {
     this.onClearSavedHistory = this.onClearSavedHistory.bind(this);
     this.onSetRequestName = this.onSetRequestName.bind(this);
     this.onToggleSavedOptions = this.onToggleSavedOptions.bind(this);
+    this.onSelectTextView = this.onSelectTextView.bind(this);
   }
   setRequestType(e) {
     let {model} = this.props;
@@ -518,13 +548,14 @@ class App extends React.Component {
 
   onSelectHistoryEntry(e) {
     let {model} = this.props;
-    model.selectedHistoryEntry = JSON.parse(e.target.value);
-    model.selectHistoryEntry();
+    let selectedHistoryEntry = JSON.parse(e.target.value);
+    model.selectHistoryEntry(selectedHistoryEntry);
     model.didUpdate();
   }
   onSelectRequestTemplate(e) {
     let {model} = this.props;
-    model.selectRequestTemplate(e.target.value);
+    let selectedTemplate = JSON.parse(e.target.value);
+    model.selectRequestTemplate(selectedTemplate);
     model.didUpdate();
   }
   onClearHistory(e) {
@@ -538,8 +569,13 @@ class App extends React.Component {
   }
   onSelectSavedEntry(e) {
     let {model} = this.props;
-    model.selectedSavedEntry = JSON.parse(e.target.value);
-    model.selectSavedEntry();
+    let selectedSavedEntry = JSON.parse(e.target.value);
+    model.selectSavedEntry(selectedSavedEntry);
+    model.didUpdate();
+  }
+  onSelectTextView(e) {
+    let {model} = this.props;
+    model.selectedTextView = JSON.parse(e.target.value);
     model.didUpdate();
   }
   onAddToHistory(e) {
@@ -608,10 +644,10 @@ class App extends React.Component {
           h("div", {className: "query-history-controls"},
             h("select", {value: "", onChange: this.onSelectRequestTemplate, className: "request-history", title: "Check documentation to customize templates"},
               h("option", {value: null, disabled: true, defaultValue: true, hidden: true}, "Templates"),
-              model.requestTemplates.map(q => h("option", {key: q, value: q}, q))
+              model.requestTemplates.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, (q.httpMethod + " " + q.apiUrl + " " + q.request).substring(0, 300)))
             ),
             h("div", {className: "button-group"},
-              h("select", {value: JSON.stringify(model.selectedHistoryEntry), onChange: this.onSelectHistoryEntry, className: "request-history"},
+              h("select", {value: "", onChange: this.onSelectHistoryEntry, className: "request-history"},
                 h("option", {value: JSON.stringify(null), disabled: true}, "Request History"),
                 model.requestHistory.list.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, (q.httpMethod + " " + q.apiUrl + " " + q.request).substring(0, 300)))
               ),
@@ -622,9 +658,9 @@ class App extends React.Component {
               h("a", {href: "#", onClick: this.onClearSavedHistory, title: "Clear saved history"}, "Clear Saved Requests")
             ),
             h("div", {className: "button-group"},
-              h("select", {value: JSON.stringify(model.selectedSavedEntry), onChange: this.onSelectSavedEntry, className: "request-history"},
+              h("select", {value: "", onChange: this.onSelectSavedEntry, className: "request-history"},
                 h("option", {value: JSON.stringify(null), disabled: true}, "Saved Requests"),
-                model.savedHistory.list.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, q.request.substring(0, 300)))
+                model.savedHistory.list.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, (q.httpMethod + " " + q.apiUrl + " " + q.request).substring(0, 300)))
               ),
               h("input", {placeholder: "Request Label", type: "save", value: model.requestName, onInput: this.onSetRequestName}),
               h("button", {onClick: this.onAddToHistory, title: "Add request to saved history"}, "Save Request"),
@@ -668,21 +704,17 @@ class App extends React.Component {
       ),
       h("div", {className: "area", id: "result-area"},
         h("div", {className: "result-bar"},
-          h("h1", {}, "Request Result")
+          h("h1", {}, "Request Result"),
+          model.apiResponse && h("div", {},
+            h("select", {value: JSON.stringify(model.selectedTextView), onChange: this.onSelectTextView, className: "textview-format"},
+              h("option", {value: JSON.stringify(null), disabled: true}, "Result format"),
+              model.apiResponse.textViews.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, q.name))
+            ),
+            h("span", {className: model.apiResponse.status == "Error" ? "status-error" : "status-success"}, "Status: " + model.apiResponse.status),
+          ),
         ),
         h("div", {id: "result-table", ref: "scroller"},
           model.apiResponse && h("div", {},
-            h("ul", {},
-              h("li", {className: model.apiResponse.status == "Error" ? "status-error" : "status-success"}, "Status: " + model.apiResponse.status),
-              model.apiResponse.textViews.map(textView =>
-                h("li", {key: textView.name},
-                  h("label", {},
-                    h("input", {type: "radio", name: "textView", checked: model.selectedTextView == textView, onChange: () => { model.selectedTextView = textView; model.didUpdate(); }}),
-                    " " + textView.name
-                  )
-                )
-              )
-            ),
             model.selectedTextView && !model.selectedTextView.table && h("div", {},
               h("textarea", {readOnly: true, value: model.selectedTextView.value})
             ),
