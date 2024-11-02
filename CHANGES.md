@@ -1,5 +1,19 @@
 # Release Notes
 
+## Version 1.30
+- Share date format option for import and export [issue 166](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/166)
+- Fix token generation issue and display message on popup if failed [issue 165](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/165)
+- Save all button on data export [issue 174](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/174)
+- Retry system for token before hard failing [issue 172](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/172)
+- Fix edit and menu which disappear on scroll by keeping state of cells with scroll or loading data [issue 178](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/178)
+- Get all tokens if other window refresh token [issue 180](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/180) and [issue 83](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/83)
+- Support Graphql in data export [issue 109](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/109)
+- Ability to load a range of data as parameter of query [issue 169](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/169)
+- button on flow to know where the flow is used (subflow, flexipage, quick action) [issue 157](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/157)
+- Improved quote management close to editor by @Dufgui [issue 61](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/61)
+- API explorer: add template, history and saved request and display format according data [issue 171](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/171)
+- streaming: format json and filter result and download button [issue 114](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/114)
+
 ## Version 1.29
 - fix name in saved queries [issue 159](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/159)
 - make shortcut editable [issue 161](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/161)
