@@ -19,7 +19,7 @@ class Model {
     function sort(a, b) {
       return (a.request > b.request) ? 1 : ((b.request > a.request) ? -1 : 0);
     }
-    this.requestHistory = new QueryHistory("insextRequestHistory", 100, compare, sort);
+    this.requestHistory = new QueryHistory("insextRequestHistory", 30, compare, sort);
     this.savedHistory = new QueryHistory("insextSavedRequestHistory", 50, compare, sort);
     this.apiResponse = null;
     this.selectedTextView = null;
@@ -128,7 +128,6 @@ class Model {
   }
   performRequest(apiPromise) {
     this.start = performance.now();
-    this.requestHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, bodyType: this.bodyType, apiUrl: this.apiUrl, soapType: this.soapType});
     this.spinFor(apiPromise.then(result => {
       this.time = performance.now() - this.start;
       this.parseResponse(result, "Success");
@@ -189,8 +188,16 @@ class Model {
     // Recursively explore the JSON structure, discovering tables and their rows and columns.
     let apiSubUrls = [];
     let groupUrls = {};
+    let bodyParsed = JSON.stringify(result, null, "    ");
+    if (status == "Success") {
+      let historyItem = {request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, bodyType: this.bodyType, apiUrl: this.apiUrl, soapType: this.soapType};
+      if (bodyParsed.length < 10000) {
+        historyItem.response = result;
+      }
+      this.requestHistory.add(historyItem);
+    }
     let textViews = [
-      {name: "Raw JSON", value: JSON.stringify(result, null, "    ")}
+      {name: "Raw JSON", value: bodyParsed}
     ];
     let tRow = {value: result, cells: null, parent: null}; // The root row
     let tViews = {
@@ -392,6 +399,9 @@ class Model {
       this.payload = selectedHistoryEntry.request;
       this.apiUrl = selectedHistoryEntry.apiUrl;
       this.bodyType = selectedHistoryEntry.bodyType || "json";
+      if (selectedHistoryEntry.response) {
+        this.parseResponse(selectedHistoryEntry.response, "Success");
+      }
     }
   }
   selectRequestTemplate(selectedTemplate) {
@@ -646,6 +656,9 @@ class App extends React.Component {
   render() {
     let {model} = this.props;
     document.title = model.title;
+    let hostArg = new URLSearchParams();
+    hostArg.set("host", model.sfHost);
+    hostArg.set("tab", 2);
     let soapTypes = ["Enterprise", "Partner", "Apex", "Metadata", "Tooling"];
     let httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"]; // not needed: "HEAD", "CONNECT", "OPTIONS", "TRACE"
     let bodyTypes = ["raw", "json", "csv", "xml"];
@@ -664,6 +677,12 @@ class App extends React.Component {
             h("span", {className: "slds-assistive-text"}),
             h("div", {className: "slds-spinner__dot-a"}),
             h("div", {className: "slds-spinner__dot-b"}),
+          ),
+          h("a", {href: "options.html?" + hostArg, className: "top-btn", id: "options-btn", title: "Option", target: "_blank"},
+            h("div", {className: "icon"})
+          ),
+          h("a", {href: "https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/", target: "_blank", className: "top-btn", id: "help-btn", title: "Help"},
+            h("div", {className: "icon"})
           ),
         ),
       ),
