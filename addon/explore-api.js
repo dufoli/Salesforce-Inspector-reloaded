@@ -12,6 +12,7 @@ class Model {
     this.userInfo = "...";
     this.expandSavedOptions = false;
     this.requestName = "";
+    this.bodyType = "json";
     function compare(a, b) {
       return a.request == b.request && a.requestType == b.requestType && a.httpMethod == b.httpMethod && a.apiUrl == b.apiUrl && a.soapType == b.soapType && a.name == b.name;
     }
@@ -64,6 +65,12 @@ class Model {
         {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/query/?q=SELECT+Id,+Name+FROM+Account+LIMIT+10`, name: "Select query"},
         {requestType: "REST", httpMethod: "POST", request: "{ \"query\": \"query accounts { uiapi { query { Account { edges { node { Id  Name { value } } } } } } }\"}", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/graphql`, name: "Services list"},
         {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/metadata/deployRequest/deployRequestId?includeDetails=true`, name: "Deploy status"},
+        {requestType: "REST", httpMethod: "POST", request: "{\"object\": \"Account\", \"contentType\" : \"CSV\", \"operation\" : \"insert\", \"lineEnding\" : \"CRLF\"}", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/jobs/ingest/`, name: "Bulk create job"},
+        {requestType: "REST", httpMethod: "POST", request: "Name,ShippingCity,NumberOfEmployees,AnnualRevenue,Website,Description\r\nLorem Ipsum,Milano,2676,912260031,https://ft.com/lacus/at.jsp,\"Lorem ipsum dolor sit amet\"", soapType: "Partner", bodyType: "csv", apiUrl: `/services/data/v${apiVersion}/jobs/ingest/[jobId]/batches/`, name: "Bulk insert job"},
+        {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/chatter/feeds/news/me/feed-elements`, name: "chatter News feed"},
+        {requestType: "REST", httpMethod: "GET", request: "", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/analytics/reports/[ReportId]?includeDetails=true`, name: "Report data"},
+        {requestType: "REST", httpMethod: "POST", request: "{\"FullName\": \"Carbon_Comparison_Channel__chn\", \"Metadata\": { \"channelType\": \"event\", \"label\": \"Carbon Comparison Channel\"}", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/tooling/sobjects/PlatformEventChannel`, name: "Create platform event channel"},
+        {requestType: "REST", httpMethod: "POST", request: "{\"FullName\": \"Carbon_Comparison_Channel_chn_Carbon_Comparison_e\", \"Metadata\": {\"eventChannel\": \"Carbon_Comparison_Channel__chn\", \"selectedEntity\": \"Carbon_Comparison__e\"}}", soapType: "Partner", apiUrl: `/services/data/v${apiVersion}/tooling/sobjects/PlatformEventChannelMember`, name: "Create platform event channel member"},
       ];
     }
     this.spinFor(sfConn.soap(sfConn.wsdl(apiVersion, "Partner"), "getUserInfo", {}).then(res => {
@@ -117,7 +124,7 @@ class Model {
     return "explore-api.html?" + args;
   }
   performRequest(apiPromise) {
-    this.requestHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, apiUrl: this.apiUrl, soapType: this.soapType});
+    this.requestHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, bodyType: this.bodyType, apiUrl: this.apiUrl, soapType: this.soapType});
     this.spinFor(apiPromise.then(result => {
       this.parseResponse(result, "Success");
     }, err => {
@@ -378,6 +385,7 @@ class Model {
       this.soapType = selectedHistoryEntry.soapType;
       this.payload = selectedHistoryEntry.request;
       this.apiUrl = selectedHistoryEntry.apiUrl;
+      this.bodyType = selectedHistoryEntry.bodyType || "json";
     }
   }
   selectRequestTemplate(selectedTemplate) {
@@ -387,6 +395,7 @@ class Model {
       this.payload = selectedTemplate.request;
       this.soapType = selectedTemplate.soapType;
       this.apiUrl = selectedTemplate.apiUrl;
+      this.bodyType = selectedTemplate.bodyType || "json";
     }
     //this.editor.focus();
   }
@@ -400,22 +409,27 @@ class Model {
       this.payload = selectedSavedEntry.request;
       this.soapType = selectedSavedEntry.soapType;
       this.apiUrl = selectedSavedEntry.apiUrl;
+      this.bodyType = selectedSavedEntry.bodyType || "json";
     }
   }
   clearSavedHistory() {
     this.savedHistory.clear();
   }
   addToHistory() {
-    this.savedHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, apiUrl: this.apiUrl, soapType: this.soapType, name: this.requestName});
+    this.savedHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, bodyType: this.bodyType, apiUrl: this.apiUrl, soapType: this.soapType, name: this.requestName});
   }
   removeFromHistory() {
-    this.savedHistory.remove({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, apiUrl: this.apiUrl, soapType: this.soapType, name: this.requestName});
+    this.savedHistory.remove({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, bodyType: this.bodyType, apiUrl: this.apiUrl, soapType: this.soapType, name: this.requestName});
   }
   /*getRequestToSave() {
     return this.requestName != "" ? this.requestName + ":" + this.payload : this.payload;
   }*/
   setHttpMethod(httpMethod) {
     this.httpMethod = httpMethod;
+    this.didUpdate();
+  }
+  setBodyType(bodyType) {
+    this.bodyType = bodyType;
     this.didUpdate();
   }
   formatforHuman(src) {
@@ -469,8 +483,12 @@ class Model {
       case "REST":
         try {
           if (this.httpMethod != "GET" && this.httpMethod != "DELETE") {
-            let body = JSON.parse(this.payload);
-            this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "json", body: ((this.httpMethod != "GET" && this.httpMethod != "DELETE") ? body : null), withoutCache: true}));
+            if (this.bodyType == "json") {
+              let body = JSON.parse(this.payload);
+              this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "json", body, withoutCache: true}));
+            } else {
+              this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: this.bodyType, body: this.payload, withoutCache: true}));
+            }
           } else {
             this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, withoutCache: true}));
           }
@@ -498,6 +516,7 @@ class App extends React.Component {
     this.setRequestType = this.setRequestType.bind(this);
     this.setSoapType = this.setSoapType.bind(this);
     this.setHttpMethod = this.setHttpMethod.bind(this);
+    this.setBodyType = this.setBodyType.bind(this);
     this.setSoapMethod = this.setSoapMethod.bind(this);
     this.setUrl = this.setUrl.bind(this);
     this.setPayload = this.setPayload.bind(this);
@@ -525,10 +544,13 @@ class App extends React.Component {
     let {model} = this.props;
     model.setSoapMethod(e.target.value);
   }
-
   setHttpMethod(e) {
     let {model} = this.props;
     model.setHttpMethod(e.target.value);
+  }
+  setBodyType(e) {
+    let {model} = this.props;
+    model.setBodyType(e.target.value);
   }
   setUrl(e) {
     let {model} = this.props;
@@ -620,6 +642,7 @@ class App extends React.Component {
     document.title = model.title;
     let soapTypes = ["Enterprise", "Partner", "Apex", "Metadata", "Tooling"];
     let httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"]; // not needed: "HEAD", "CONNECT", "OPTIONS", "TRACE"
+    let bodyTypes = ["raw", "json", "csv", "xml"];
     return h("div", {},
       h("div", {id: "user-info"},
         h("a", {href: model.sfLink, className: "sf-link"},
@@ -690,6 +713,11 @@ class App extends React.Component {
             h("span", {className: "form-label"}, "Method")),
           h("span", {className: "form-value"},
             h("select", {name: "httpMethod", onChange: this.setHttpMethod, value: model.httpMethod}, httpMethods.map(s => h("option", {value: s, key: s}, s))))),
+        h("div", {hidden: (model.requestType != "REST" || (model.httpMethod == "GET" || model.httpMethod == "DELETE")), className: "form-line"},
+          h("label", {className: "form-input"},
+            h("span", {className: "form-label"}, "Body type")),
+          h("span", {className: "form-value"},
+            h("select", {name: "bodyType", onChange: this.setBodyType, value: model.bodyType}, bodyTypes.map(s => h("option", {value: s, key: s}, s))))),
         h("div", {className: "form-line", hidden: (model.requestType == "REST" && (model.httpMethod == "GET" || model.httpMethod == "DELETE"))},
           h("label", {className: "form-input"},
             h("span", {className: "form-label"}, "Payload")),
@@ -785,89 +813,3 @@ class App extends React.Component {
   });
 
 }
-
-console.log("%cMake Salesforce API calls", "font-size: 3em; font-weight: bold");
-console.groupCollapsed("How to make REST API calls");
-console.log(`%cExample:
-%c  display(sfConn.rest("/services/data/v${apiVersion}/query/?q=" + encodeURIComponent("select Id, Name from Account where CreatedDate = LAST_WEEK")));
-
-  https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_query.htm
-
-%cExample:
-%c  var myNewAccount = {Name: "test"};
-  display(sfConn.rest("/services/data/v${apiVersion}/sobjects/Account", {method: "POST", body: myNewAccount}));
-
-%cExample GraphQL:
-%c  var myQuery = { "query": "query accounts { uiapi { query { Account { edges { node { Id  Name { value } } } } } } }" };
-  display(sfConn.rest("/services/data/v${apiVersion}/graphql", {method: "POST", body: myQuery}));
-
-  https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_sobject_create.htm
-
-%cUsage:
-%c  var responsePromise = sfConn.rest(url, {method, api, body, bodyType, headers});
-  display(responsePromise);
-
-    path (required): The relative URL to request.
-    method (default "GET"): The HTTP method to use.
-    api (default "normal"): The type of REST api, either "normal" or "bulk".
-    body (optional): An object that will be converted to JSON.
-    bodyType (default "json"): Set to "raw" to use use a body other than JSON.
-    headers (optional): An object with HTTP headers, example {"Sforce-Query-Options": "batchSize=1000"}. https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/headers.htm
-    responsePromise: A Promise for a Salesforce API response.
-
-%cDocumentation:
-%c  Bulk: https://developer.salesforce.com/docs/atlas.en-us.api_asynch.meta/api_asynch/
-  Chatter: https://developer.salesforce.com/docs/atlas.en-us.chatterapi.meta/chatterapi/
-  REST: https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/
-  Tooling: https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/
-  Reports and Dashboards: https://developer.salesforce.com/docs/atlas.en-us.api_analytics.meta/api_analytics/
-  GraphQL: https://developer.salesforce.com/docs/platform/graphql/guide/requests-and-responses.html
-`,
-"font-weight: bold; font-style: italic",
-"",
-"font-weight: bold; font-style: italic",
-"",
-"font-weight: bold; font-style: italic",
-"",
-"font-weight: bold; font-style: italic",
-""
-);
-console.groupEnd();
-console.groupCollapsed("How to make SOAP API calls");
-console.log(`%cExample:
-%c  let enterpriseWsdl = sfConn.wsdl("${apiVersion}").Enterprise;
-  let contacts = [
-    {$type: "Contact", FirstName: "John", LastName: "Smith", Email: "john.smith@example.com"},
-    {$type: "Contact", FirstName: "Jane", LastName: "Smith", Email: "jane.smith@example.com"},
-  ];
-  let upsertResults = sfConn.soap(enterpriseWsdl, "upsert", {externalIdFieldName: "Email", sObjects: contacts});
-  display(upsertResults);
-
-  https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_calls_upsert.htm
-
-%cUsage:
-%c  var wsdl = sfConn.wsdl(apiVersion)[apiName];
-  var responsePromise = sfConn.soap(wsdl, method, args, {headers});
-  display(responsePromise);
-
-    apiVersion (required): The Salesforce API version.
-    apiName (required): One of "Enterprise", "Partner", "Apex", "Metadata" and "Tooling".
-    method (required): The name of the SOAP method to be called, as found in the Salesforce documentation.
-    args (required): The arguments to the called SOAP method. Pass an object where each property corresponds to a SOAP method argument by name, or an empty object for no arguments.
-    headers (optional): SOAP headers, e.g. {AllOrNoneHeader: {allOrNone: false}}.
-    responsePromise: A Promise for a Salesforce API response.
-
-%cDocumentation:
-%c  "Enterprise": https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/
-  "Partner": https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/
-  "Metadata": https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/
-  "Tooling": https://developer.salesforce.com/docs/atlas.en-us.api_tooling.meta/api_tooling/
-`,
-"font-weight: bold; font-style: italic",
-"",
-"font-weight: bold; font-style: italic",
-"",
-"font-weight: bold; font-style: italic",
-""
-);
-console.groupEnd();
