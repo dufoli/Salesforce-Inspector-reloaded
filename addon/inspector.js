@@ -1,4 +1,9 @@
-export let apiVersion = localStorage.getItem("apiVersion") == null ? "61.0" : localStorage.getItem("apiVersion");
+let lastApiVersion = "62.0";
+if (localStorage.getItem("apiVersion") == lastApiVersion) {
+  localStorage.removeItem("apiVersion");
+  //do not keep if last version is selected in order to update to last vrsion on update of SFI.
+}
+export let apiVersion = localStorage.getItem("apiVersion") == null ? lastApiVersion : localStorage.getItem("apiVersion");
 export let sessionError;
 export let sfConn = {
 
