@@ -65,6 +65,11 @@ export let sfConn = {
         xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
       } else if (bodyType == "raw") {
         // Do nothing
+      } else if (bodyType == "csv") {
+        xhr.setRequestHeader("Content-Type", "text/csv; charset=UTF-8");
+        // Do nothing
+      } else if (bodyType == "xml") {
+        // Do nothing
       } else {
         throw new Error("Unknown bodyType");
       }
