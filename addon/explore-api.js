@@ -681,7 +681,7 @@ class App extends React.Component {
           h("a", {href: "options.html?" + hostArg, className: "top-btn", id: "options-btn", title: "Option", target: "_blank"},
             h("div", {className: "icon"})
           ),
-          h("a", {href: "https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/", target: "_blank", className: "top-btn", id: "help-btn", title: "Help"},
+          h("a", {href: (model.requestType == "SOAP" ? "https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/" : "https://www.salesforce.com/us/developer/docs/api_rest/"), target: "_blank", className: "top-btn", id: "help-btn", title: "Help"},
             h("div", {className: "icon"})
           ),
         ),
@@ -801,12 +801,6 @@ class App extends React.Component {
               )
             )
           ),
-          h("a", {href: "https://www.salesforce.com/us/developer/docs/api_rest/", target: "_blank"}, "REST API documentation"),
-          " Open your browser's ",
-          h("b", {}, "F12 Developer Tools"),
-          " and select the ",
-          h("b", {}, "Console"),
-          " tab to make your own API calls."
         ),
       )
     );
