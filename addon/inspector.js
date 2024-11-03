@@ -70,6 +70,7 @@ export let sfConn = {
         // Do nothing
       } else if (bodyType == "xml") {
         // Do nothing
+        xhr.setRequestHeader("Content-Type", "text/xml; charset=UTF-8");
       } else {
         throw new Error("Unknown bodyType");
       }
