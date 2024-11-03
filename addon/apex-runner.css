@@ -1,10 +1,10 @@
 .class .autocomplete-icon {
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/relate.svg');
+  -webkit-mask-image: url(images/relate.svg);
   background-color: #04844B;
 }
 
 .namespace .autocomplete-icon {
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/textarea.svg');
+  -webkit-mask-image: url(images/textarea.svg);
   background-color: #04844B;
 }
 .scrolltable-wrapper {

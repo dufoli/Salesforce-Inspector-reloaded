@@ -140,21 +140,21 @@ td.scrolltable-cell-diff {
 .pop-menu a.view-salesforce .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/salesforce1.svg');
+  -webkit-mask-image: url(images/salesforce1.svg);
   -webkit-mask-position: center;
 }
 
 .pop-menu a.view-inspector .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/salesforce-inspector-logo.svg');
+  -webkit-mask-image: url(images/salesforce-inspector-logo.svg);
   -webkit-mask-position: center;
 }
 
 .pop-menu a.view-log .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/salesforce-inspector-logo.svg');
+  -webkit-mask-image: url(images/salesforce-inspector-logo.svg);
   -webkit-mask-position: center;
 }
 
@@ -162,7 +162,7 @@ td.scrolltable-cell-diff {
 .pop-menu a.query-record .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/record_lookup.svg');
+  -webkit-mask-image: url(images/record_lookup.svg);
   -webkit-mask-position: center;
   background-color: #706E6B;
 }
@@ -170,7 +170,7 @@ td.scrolltable-cell-diff {
 .pop-menu a.copy-id .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/copy.svg');
+  -webkit-mask-image: url(images/copy.svg);
   -webkit-mask-position: center;
   background-color: #706E6B;
 }
@@ -178,7 +178,7 @@ td.scrolltable-cell-diff {
 .pop-menu a.edit-record .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/edit.svg');
+  -webkit-mask-image: url(images/edit.svg);
   -webkit-mask-position: center;
   background-color: #706E6B;
 }
@@ -186,7 +186,7 @@ td.scrolltable-cell-diff {
 .pop-menu a.download-salesforce .icon {
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 1rem;
-  -webkit-mask-image: url('chrome-extension://__MSG_@@extension_id__/images/down.svg');
+  -webkit-mask-image: url(images/down.svg);
   -webkit-mask-position: center;
 }
 
