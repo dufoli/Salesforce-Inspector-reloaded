@@ -11,6 +11,7 @@ body {
 }
 .status-success {
   padding-left: 10px;
+  color: green;
 }
 .status-error {
   padding-left: 10px;

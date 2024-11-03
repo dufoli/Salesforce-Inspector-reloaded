@@ -30,6 +30,8 @@ class Model {
     this.apiUrl;
     this.payload = "";
     this.httpMethod = "GET";
+    this.time = 0;
+    this.start = 0;
 
     if (args.has("apiUrls")) {
       let apiUrls = args.getAll("apiUrls");
@@ -125,10 +127,13 @@ class Model {
     return "explore-api.html?" + args;
   }
   performRequest(apiPromise) {
+    this.start = performance.now();
     this.requestHistory.add({request: this.payload, requestType: this.requestType, httpMethod: this.httpMethod, bodyType: this.bodyType, apiUrl: this.apiUrl, soapType: this.soapType});
     this.spinFor(apiPromise.then(result => {
+      this.time = performance.now() - this.start;
       this.parseResponse(result, "Success");
     }, err => {
+      this.time = performance.now() - this.start;
       this.parseResponse(err.detail || err.message, "Error");
     }));
   }
@@ -739,7 +744,7 @@ class App extends React.Component {
               h("option", {value: JSON.stringify(null), disabled: true}, "Result format"),
               model.apiResponse.textViews.map(q => h("option", {key: JSON.stringify(q), value: JSON.stringify(q)}, q.name))
             ),
-            h("span", {className: model.apiResponse.status == "Error" ? "status-error" : "status-success"}, "Status: " + model.apiResponse.status),
+            h("span", {className: model.apiResponse.status == "Error" ? "status-error" : "status-success"}, "Status: " + model.apiResponse.status + " (" + Math.round(model.time) + "ms)"),
           ),
         ),
         h("div", {id: "result-table", ref: "scroller"},
