@@ -13,6 +13,7 @@ class Model {
     this.expandSavedOptions = false;
     this.requestName = "";
     this.bodyType = "json";
+    this.headers = [];
     function compare(a, b) {
       return a.request == b.request && a.requestType == b.requestType && a.httpMethod == b.httpMethod && a.apiUrl == b.apiUrl && a.soapType == b.soapType && a.name == b.name;
     }
@@ -491,7 +492,20 @@ class Model {
     this.payload = payload;
     this.didUpdate();
   }
+  setHeader(idx, header) {
+    this.headers[idx] = header;
+  }
+  addHeader() {
+    this.headers.push({key: "", value: ""});
+  }
   execute() {
+    let head = {};
+    this.headers.forEach(header => {
+      if (header.key == "" && header.value == "") {
+        return;
+      }
+      head[header.key] = header.value;
+    });
     switch (this.requestType) {
       case "SOAP":
         this.performRequest(sfConn.soap(sfConn.wsdl(apiVersion, this.soapType), null, this.payload));
@@ -501,16 +515,16 @@ class Model {
           if (this.httpMethod != "GET" && this.httpMethod != "DELETE") {
             if (this.bodyType == "json") {
               let body = JSON.parse(this.payload);
-              this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "json", body, withoutCache: true}));
+              this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, headers: head, bodyType: "json", body, withoutCache: true}));
             } else {
-              this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: this.bodyType, body: this.payload, withoutCache: true}));
+              this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, headers: head, bodyType: this.bodyType, body: this.payload, withoutCache: true}));
             }
           } else {
-            this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, withoutCache: true}));
+            this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, headers: head, withoutCache: true}));
           }
         } catch (e) {
           // ignore
-          this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, bodyType: "raw", body: ((this.httpMethod != "GET" && this.httpMethod != "DELETE") ? this.payload : null), withoutCache: true}));
+          this.performRequest(sfConn.rest(this.apiUrl, {method: this.httpMethod, headers: head, bodyType: "raw", body: ((this.httpMethod != "GET" && this.httpMethod != "DELETE") ? this.payload : null), withoutCache: true}));
         }
 
         break;
@@ -526,6 +540,41 @@ function csvSerialize(table, separator) {
 
 let h = React.createElement;
 
+class HTTPHeader extends React.Component {
+  constructor(props) {
+    super(props);
+    this.changeKey = this.changeKey.bind(this);
+    this.changeValue = this.changeValue.bind(this);
+    this.deleteHeader = this.deleteHeader.bind(this);
+    this.idx = props.idx;
+    this.headerKey = props.headerKey;
+    this.headerValue = props.headerValue;
+  }
+  changeKey(e) {
+    let {idx, model} = this.props;
+    this.props.headerKey = e.target.value;
+    model.setHeader(idx, {key: e.target.value, value: this.props.headerValue});
+    model.didUpdate();
+  }
+  changeValue(e) {
+    let {idx, model} = this.props;
+    this.props.headerValue = e.target.value;
+    model.setHeader(idx, {key: this.props.headerKey, value: e.target.value});
+    model.didUpdate();
+  }
+  deleteHeader() {
+    let {idx, model} = this.props;
+    model.headers.splice(idx, 1);
+    model.didUpdate();
+  }
+  render() {
+    return h("div", {},
+      h("input", {type: "text", value: this.props.headerKey, onChange: this.changeKey, placeholder: "Key", className: ""}),
+      h("input", {type: "text", value: this.props.headerValue, onChange: this.changeValue, placeholder: "Value", className: ""}),
+      h("button", {onClick: this.deleteHeader}, "Delete")
+    );
+  }
+}
 class App extends React.Component {
   constructor(props) {
     super(props);
@@ -547,6 +596,7 @@ class App extends React.Component {
     this.onSetRequestName = this.onSetRequestName.bind(this);
     this.onToggleSavedOptions = this.onToggleSavedOptions.bind(this);
     this.onSelectTextView = this.onSelectTextView.bind(this);
+    this.onAddHttpHeader = this.onAddHttpHeader.bind(this);
   }
   setRequestType(e) {
     let {model} = this.props;
@@ -653,6 +703,11 @@ class App extends React.Component {
     model.toggleSavedOptions();
     model.didUpdate();
   }
+  onAddHttpHeader(e) {
+    let {model} = this.props;
+    model.addHeader();
+    model.didUpdate();
+  }
   render() {
     let {model} = this.props;
     document.title = model.title;
@@ -712,49 +767,51 @@ class App extends React.Component {
               ),
               h("input", {placeholder: "Request Label", type: "save", value: model.requestName, onInput: this.onSetRequestName}),
               h("button", {onClick: this.onAddToHistory, title: "Add request to saved history"}, "Save Request"),
-              h("button", {className: model.expandSavedOptions ? "toggle contract" : "toggle expand", title: "Show More Options", onClick: this.onToggleSavedOptions}, h("div", {className: "button-toggle-icon"}))
+              h("button", {className: model.expandSavedOptions ? "toggle contract" : "toggle expand", title: "Show More Options", onClick: this.onToggleSavedOptions}, h("div", {className: "button-toggle-icon"})),
+              h("button", {className: "", onClick: this.onAddHttpHeader}, "Add HTTP header"),
+              h("button", {className: "highlighted", onClick: this.onExecute}, "Execute")
             ),
           ),
         ),
-        h("div", {className: "form-line"},
-          h("label", {className: "form-input"},
-            h("span", {className: "form-label"}, "Type")),
-          h("span", {className: "form-value"},
-            h("select", {name: "requestType", onChange: this.setRequestType}, h("option", {value: "REST"}, "REST"), h("option", {value: "SOAP"}, "SOAP"))),
-          h("button", {className: "highlighted", onClick: this.onExecute}, "Execute")
+        h("div", {className: "query-controls"},
+          h("div", {className: "form-line"},
+            h("label", {className: "form-input"},
+              h("span", {className: "form-label"}, "Type")),
+            h("span", {className: "form-value"},
+              h("select", {name: "requestType", onChange: this.setRequestType}, h("option", {value: "REST"}, "REST"), h("option", {value: "SOAP"}, "SOAP")))
+          ),
+          h("div", {hidden: model.requestType != "SOAP", className: "form-line"},
+            h("label", {className: "form-input"},
+              h("span", {className: "form-label"}, "WSDL")),
+            h("span", {className: "form-value"},
+              h("select", {name: "soapType", onChange: this.setSoapType, value: model.soapType}, soapTypes.map(s => h("option", {value: s, key: s}, s))))),
+          h("div", {hidden: model.requestType != "SOAP", className: "form-line"},
+            h("label", {className: "form-input"},
+              h("span", {className: "form-label"}, "Soap Method")),
+            h("span", {className: "form-value"},
+              h("select", {name: "soapMethod", onChange: this.setSoapMethod}, model.soapMethods.map(s => h("option", {value: s, key: s}, s))))),
+          h("div", {hidden: model.requestType != "REST", className: "form-line"},
+            h("label", {className: "form-input"},
+              h("span", {className: "form-label"}, "Method")),
+            h("span", {className: "form-value"},
+              h("select", {name: "httpMethod", onChange: this.setHttpMethod, value: model.httpMethod}, httpMethods.map(s => h("option", {value: s, key: s}, s))))),
+          h("div", {hidden: (model.requestType != "REST" || (model.httpMethod == "GET" || model.httpMethod == "DELETE")), className: "form-line"},
+            h("label", {className: "form-input"},
+              h("span", {className: "form-label"}, "Body type")),
+            h("span", {className: "form-value"},
+              h("select", {name: "bodyType", onChange: this.setBodyType, value: model.bodyType}, bodyTypes.map(s => h("option", {value: s, key: s}, s))))),
         ),
-        h("div", {hidden: model.requestType != "SOAP", className: "form-line"},
-          h("label", {className: "form-input"},
-            h("span", {className: "form-label"}, "WSDL")),
-          h("span", {className: "form-value"},
-            h("select", {name: "soapType", onChange: this.setSoapType, value: model.soapType}, soapTypes.map(s => h("option", {value: s, key: s}, s))))),
-        h("div", {hidden: model.requestType != "SOAP", className: "form-line"},
-          h("label", {className: "form-input"},
-            h("span", {className: "form-label"}, "Soap Method")),
-          h("span", {className: "form-value"},
-            h("select", {name: "soapMethod", onChange: this.setSoapMethod}, model.soapMethods.map(s => h("option", {value: s, key: s}, s))))),
-        h("div", {hidden: model.requestType != "REST", className: "form-line"},
-          h("label", {className: "form-input"},
-            h("span", {className: "form-label"}, "Method")),
-          h("span", {className: "form-value"},
-            h("select", {name: "httpMethod", onChange: this.setHttpMethod, value: model.httpMethod}, httpMethods.map(s => h("option", {value: s, key: s}, s))))),
-        h("div", {hidden: (model.requestType != "REST" || (model.httpMethod == "GET" || model.httpMethod == "DELETE")), className: "form-line"},
-          h("label", {className: "form-input"},
-            h("span", {className: "form-label"}, "Body type")),
-          h("span", {className: "form-value"},
-            h("select", {name: "bodyType", onChange: this.setBodyType, value: model.bodyType}, bodyTypes.map(s => h("option", {value: s, key: s}, s))))),
+        model.headers.map((header, i) => h(HTTPHeader, {headerKey: header.key, headerValue: header.value, idx: i, model})),
         h("div", {className: "form-line", hidden: (model.requestType == "REST" && (model.httpMethod == "GET" || model.httpMethod == "DELETE"))},
           h("label", {className: "form-input"},
             h("span", {className: "form-label"}, "Payload")),
           h("span", {className: "form-value"},
             h("textarea", {name: "httpBody", value: model.payload, onChange: this.setPayload}))),
-        //TODO HTTP headers
         h("div", {hidden: model.requestType != "REST", className: "form-line"},
           h("label", {className: "form-input"},
             h("span", {className: "form-label"}, "URL")),
           h("span", {className: "form-value"},
-            h("input", {name: "url", onChange: this.setUrl, value: model.apiUrl})))
-      ),
+            h("input", {name: "url", onChange: this.setUrl, value: model.apiUrl})))),
       h("div", {className: "area", id: "result-area"},
         h("div", {className: "result-bar"},
           h("h1", {}, "Request Result"),
