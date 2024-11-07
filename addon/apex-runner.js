@@ -628,6 +628,7 @@ class Model {
     if (!vm.isWorking) {
       this.enableLogs();
     }
+    vm.executeError = null;
     let script = vm.editor.value;
     vm.spinFor(sfConn.rest("/services/data/v" + apiVersion + "/tooling/executeAnonymous/?anonymousBody=" + encodeURIComponent(script), {})
       .catch(error => {
@@ -862,6 +863,10 @@ class Model {
         let queryLogs = "SELECT Id, Application, Status, Operation, StartTime, LogLength, LogUser.Name FROM ApexLog ORDER BY StartTime DESC LIMIT 100";
         let queryJobs = "SELECT Id, JobType, ApexClass.Name, CompletedDate, CreatedBy.Name, CreatedDate, ExtendedStatus, TotalJobItems , JobItemsProcessed, NumberOfErrors, Status FROM AsyncApexJob WHERE JobType in ('BatchApex', 'Queueable') ORDER BY CreatedDate desc LIMIT 100";
         //logs.resetTable();
+        this.logs = null;
+        vm.updatedLogs();
+        this.jobs = null;
+        vm.updatedJobs();
         logs = new RecordTable();
         logs.describeInfo = vm.describeInfo;
         logs.sfHost = vm.sfHost;
@@ -1181,7 +1186,7 @@ class App extends React.Component {
     let {model} = this.props;
     model.disableLogs();
   }
-
+//TODO reset error on execute
   render() {
     let {model} = this.props;
     let hostArg = new URLSearchParams();
