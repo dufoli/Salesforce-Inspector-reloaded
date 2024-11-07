@@ -51,7 +51,7 @@ class Model {
       },
       {
         id: 2,
-        title: "Duration",
+        title: "Duration(ms)",
         field: "duration",
         width: 70
       },
@@ -503,9 +503,9 @@ class Model {
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
-            node.duration = timestampNanos - node.startNano;
+            node.duration = (timestampNanos - node.startNano) / 1000000.0;
           } else if (node.start && dt) {
-            node.duration = (dt.getTime() - node.start.getTime()) * 1000;
+            node.duration = (dt.getTime() - node.start.getTime());
           }
           return i;
         } case "HEAP_ALLOCATE": {
@@ -572,9 +572,9 @@ class Model {
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
-            node.duration = timestampNanos - node.startNano;
+            node.duration = (timestampNanos - node.startNano) / 1000000.0;
           } else if (node.start && dt) {
-            node.duration = (dt.getTime() - node.start.getTime()) * 1000;
+            node.duration = (dt.getTime() - node.start.getTime());
           }
           return i;
         } case "SOSL_EXECUTE_END":
@@ -582,9 +582,9 @@ class Model {
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
-            node.duration = timestampNanos - node.startNano;
+            node.duration = (timestampNanos - node.startNano) / 1000000.0;
           } else if (node.start && dt) {
-            node.duration = (dt.getTime() - node.start.getTime()) * 1000;
+            node.duration = (dt.getTime() - node.start.getTime());
           }
           //Rows:1
           let row = Number(l[3].substring(5));
@@ -598,9 +598,9 @@ class Model {
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
-            node.duration = timestampNanos - node.startNano;
+            node.duration = (timestampNanos - node.startNano) / 1000000.0;
           } else if (node.start && dt) {
-            node.duration = (dt.getTime() - node.start.getTime()) * 1000;
+            node.duration = (dt.getTime() - node.start.getTime());
           }
           node.status = l[1];
           return i;
@@ -803,7 +803,7 @@ class Model {
       }
 
     }
-    return null;
+    return lines.length;
   }
 }
 
