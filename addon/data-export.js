@@ -399,7 +399,7 @@ class Model {
         .map((r, i, l) => this.autocompleteResults.contextPath + r.value + (i != l.length - 1 ? r.suffix : ""));
       if (ar.length > 0) {
         this.editor.focus();
-        this.editor.setRangeText(ar.join(""), selStart - this.autocompleteResults.contextPath.length, selEnd, "end");
+        this.editor.setRangeText(ar.join(""), selStart, selEnd, "end");
       }
       return;
     }
