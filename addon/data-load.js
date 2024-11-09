@@ -1105,7 +1105,7 @@ class ScrollTableCell extends React.Component {
             } else if (l.action == "abord") {
               attributes.onClick = this.abordJob;
             }
-            return h("a", attributes, arr);
+            return h("a", attributes, ...arr);
           })) : ""
       );
     }
