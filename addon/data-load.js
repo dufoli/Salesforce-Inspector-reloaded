@@ -753,6 +753,8 @@ export class TableModel {
       this.lastColIdx = 0;
       this.lastColLeft = 0;
       this.editedRows = new Map();
+      this.cellMenuOpened = null;
+      this.cellMenuToClose = null;
       this.renderData({force: true});
     } else {
       // Data or visibility was changed
@@ -806,8 +808,17 @@ export class TableModel {
     return /^\/services\/data\/v[0-9]{2,3}.[0-9]{1}\/sobjects\/EventLogFile\/[a-z0-9]{5}0000[a-z0-9]{9}\/LogFile$/i.exec(text);
   }
   toggleMenu(rowId, cellId) {
+    if (!this.rows || this.rows.length == 0) {
+      return;
+    }
     let row = this.rows[rowId];
+    if (!row) {
+      return;
+    }
     let cell = row.cells[cellId];
+    if (!cell) {
+      return;
+    }
     cell.showMenu = !cell.showMenu;
     let editedRow = this.editedRows.get(row.idx);
     if (editedRow == null) {
