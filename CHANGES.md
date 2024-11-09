@@ -1,5 +1,15 @@
 # Release Notes
 
+## Version 1.30.1
+- api explorer: mesure time, store small response in history, http header and body type support, add template : bulk api, chatter api, report api, platform event channel, platform event channel member. [issue 194](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/194)
+- update to 62 api version
+- enable on flow debug and experince builder
+- fix log parsing infinite loop and more readable duration
+- apex runner : fix bug with error remain sometimes and wrong log displayed
+- fix auto suggest data export who delete some text [issue 192](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/192)
+- fix a toggle menu null ref
+- fix warning missing key on array
+
 ## Version 1.30
 - Share date format option for import and export [issue 166](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/166)
 - Fix token generation issue and display message on popup if failed [issue 165](https://github.com/dufoli/Salesforce-Inspector-Advanced/issues/165)
