@@ -803,6 +803,42 @@ class Model {
       }
 
     }
+    let i = lines.length - 1;
+    let line = lines[i];
+    let l = line.split("|");
+    while (l.length <= 1 && i >= 0) {
+      i--;
+      line = lines[i];
+      l = line.split("|");
+    }
+    let datetimeTimestamp = l[0].split(/[:. ]/);
+    let dt = null;
+    let timestampNanos = null;
+    if (datetimeTimestamp.length == 5){
+      let rawHour = Number(datetimeTimestamp[0]);
+      let rawMin = Number(datetimeTimestamp[1]);
+      let rawSec = Number(datetimeTimestamp[2]);
+      let rawMil = Number(datetimeTimestamp[3]);
+      let rawNano = Number(datetimeTimestamp[4].substring(1, datetimeTimestamp[4].length - 1));
+      if (!isNaN(rawHour) && !isNaN(rawMin) && !isNaN(rawSec) && !isNaN(rawMil)) {
+        dt = new Date();
+        dt.setHours(rawHour);
+        dt.setMinutes(rawMin);
+        dt.setSeconds(rawSec);
+        dt.setMilliseconds(rawMil * 100);
+      }
+      if (!isNaN(rawNano)) {
+        timestampNanos = rawNano;
+      }
+    }
+    node.end = dt;
+    node.endNano = timestampNanos;
+    if (node.startNano && timestampNanos) {
+      node.duration = (timestampNanos - node.startNano) / 1000000.0;
+    } else if (node.start && dt) {
+      node.duration = (dt.getTime() - node.start.getTime());
+    }
+    node.status = l[1];
     return lines.length;
   }
 }
