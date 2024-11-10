@@ -464,7 +464,22 @@ class Model {
   }
 
   parseLine(lines, node){
-    for (let i = node.index + 1; i < lines.length; i++) {
+    let expected = null;
+    let i = node.index + 1;
+    let self = this;
+    function produceNode(l, dt, timestampNanos, child) {
+      child.index = i;
+      child.title = l.length > 4 ? l[4] : (l.length > 3 ? l[3] : (child.title ? child.title : l[1]));
+      child.child = [];
+      child.start = dt;
+      child.startNano = timestampNanos;
+      child.heap = 0;
+      child.expanded = true;
+      child.hidden = false;
+      i = self.parseLine(lines, child);
+      node.child.push(child);
+    }
+    for (i = node.index + 1; i < lines.length; i++) {
       let line = lines[i];
       let l = line.split("|");
       if (l.length <= 1) {
@@ -495,11 +510,13 @@ class Model {
       switch (l[1]) {
         //EXECUTION_STARTED EXECUTION_FINISHED
         case "CODE_UNIT_STARTED": {
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 3 ? l[3] : "code unit"), child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false};
-          i = this.parseLine(lines, child);
-          node.child.push(child);
+          expected = "CODE_UNIT_FINISHED";
+          produceNode(l, dt, timestampNanos, {title: "code unit"});
           break;
         } case "CODE_UNIT_FINISHED": {
+          if (l[1] != expected) {
+            console.log("Expected " + expected + " but got " + l[1]);
+          }
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
@@ -521,46 +538,65 @@ class Model {
           //TODO
           break;
         }
-        case "SYSTEM_METHOD_ENTRY" :
-        case "METHOD_ENTRY":
-        case "SYSTEM_CONSTRUCTOR_ENTRY":
-        case "FLOW_START_INTERVIEW_BEGIN":
+        case "SYSTEM_METHOD_ENTRY" : {
+          expected = "SYSTEM_METHOD_EXIT";
+          produceNode(l, dt, timestampNanos, {icon: "apex"});
+          break;
+        }
+        case "METHOD_ENTRY" : {
+          expected = "METHOD_EXIT";
+          produceNode(l, dt, timestampNanos, {icon: "apex"});
+          break;
+        }
+        case "SYSTEM_CONSTRUCTOR_ENTRY" : {
+          expected = "SYSTEM_CONSTRUCTOR_EXIT";
+          produceNode(l, dt, timestampNanos, {icon: "apex"});
+          break;
+        }
+        case "FLOW_START_INTERVIEW_BEGIN" : {
+          expected = "FLOW_INTERVIEW_FINISHED"; //"FLOW_START_INTERVIEW_END"; to get error
+          produceNode(l, dt, timestampNanos, {icon: "flow"});
+          break;
+        }
         case "VALIDATION_RULE":{
-          let icon = "apex";
-          if (l[1] == "FLOW_START_INTERVIEW_BEGIN") {
-            icon = "flow";
-          } else if (l[1] == "VALIDATION_RULE") {
-            icon = "approval";
-          }
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 4 ? l[4] : (l.length > 3 ? l[3] : l[1])), icon, child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false};
-          i = this.parseLine(lines, child);
-          node.child.push(child);
+          expected = "VALIDATION_";
+          produceNode(l, dt, timestampNanos, {icon: "approval"});
           break;
         }
         case "SOQL_EXECUTE_BEGIN":{
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 3 ? l[3] : l[1]), icon: "table", child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false, soql: 1};
-          i = this.parseLine(lines, child);
-          node.child.push(child);
+          expected = "SOQL_EXECUTE_END";
+          produceNode(l, dt, timestampNanos, {icon: "table", soql: 1});
           break;
         }
         case "SOSL_EXECUTE_BEGIN":{
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 3 ? l[3] : l[1]), icon: "search", child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false, sosl: 1};
-          i = this.parseLine(lines, child);
-          node.child.push(child);
+          expected = "SOSL_EXECUTE_END";
+          produceNode(l, dt, timestampNanos, {icon: "search", sosl: 1});
           break;
         }
         case "CALLOUT_REQUEST": {
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 3 ? l[3] : l[1]), icon: "broadcast", child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false, callout: 1};
-          i = this.parseLine(lines, child);
-          node.child.push(child);
+          expected = "CALLOUT_RESPONSE";
+          produceNode(l, dt, timestampNanos, {icon: "broadcast", callout: 1});
           break;
         }//TODO "futur", "queue",
         case "FLOW_ELEMENT_BEGIN": {
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 3 ? l[3] : l[1]), icon: "flow", child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false};
-          i = this.parseLine(lines, child);
-          node.child.push(child);
+          expected = "FLOW_ELEMENT_";
+          produceNode(l, dt, timestampNanos, {icon: "flow"});
           break;
-        } case "SYSTEM_METHOD_EXIT":
+        }
+        case "DML_BEGIN": {
+          //DML_BEGIN|[71]|Op:Update|Type:Account|Rows:1
+          expected = "DML_END";
+          let child = {icon: "database", title: "DML", dml: 1};
+          if (l.length > 4){
+            let dmlRow = Number(l[5].substring());
+            if (!isNaN(dmlRow)){
+              child.dmlRow = dmlRow;
+            }
+          }
+          produceNode(l, dt, timestampNanos, child);
+          break;
+        }
+        case "SYSTEM_METHOD_EXIT":
         case "METHOD_EXIT":
         case "SYSTEM_CONSTRUCTOR_EXIT":
         case "DML_END":
@@ -569,6 +605,9 @@ class Model {
         case "FLOW_ELEMENT_END":
         case "FLOW_ELEMENT_ERROR":
         case "FLOW_INTERVIEW_FINISHED": {
+          if (!l[1].startsWith(expected)) {
+            console.log("Expected " + expected + " but got " + l[1]);
+          }
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
@@ -579,6 +618,9 @@ class Model {
           return i;
         } case "SOSL_EXECUTE_END":
         case "SOQL_EXECUTE_END": {
+          if (l[1] != expected) {
+            console.log("Expected " + expected + " but got " + l[1]);
+          }
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
@@ -595,6 +637,9 @@ class Model {
         } case "VALIDATION_ERROR":
         case "VALIDATION_FAIL":
         case "VALIDATION_PASS": {
+          if (!l[1].startsWith(expected)) {
+            console.log("Expected " + expected + " but got " + l[1]);
+          }
           node.end = dt;
           node.endNano = timestampNanos;
           if (node.startNano && timestampNanos) {
@@ -636,18 +681,6 @@ class Model {
             Number of queueable jobs added to the queue: 0 out of 50
             Number of Mobile Apex push calls: 0 out of 10
           */
-          break;
-        } case "DML_BEGIN": {
-          //DML_BEGIN|[71]|Op:Update|Type:Account|Rows:1
-          let child = {index: i, title: l.length > 4 ? l[4] : (l.length > 3 ? l[3] : "DML"), icon: "database", child: [], start: dt, startNano: timestampNanos, heap: 0, expanded: true, hidden: false, dml: 1};
-          if (l.length > 4){
-            let dmlRow = Number(l[5].substring());
-            if (!isNaN(dmlRow)){
-              child.dmlRow = dmlRow;
-            }
-          }
-          i = this.parseLine(lines, child);
-          node.child.push(child);
           break;
         }
         case "NAMED_CREDENTIAL_REQUEST":
@@ -803,7 +836,7 @@ class Model {
       }
 
     }
-    let i = lines.length - 1;
+    i = lines.length - 1;
     let line = lines[i];
     let l = line.split("|");
     while (l.length <= 1 && i >= 0) {
