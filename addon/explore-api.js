@@ -547,19 +547,18 @@ class HTTPHeader extends React.Component {
     this.changeValue = this.changeValue.bind(this);
     this.deleteHeader = this.deleteHeader.bind(this);
     this.idx = props.idx;
-    this.headerKey = props.headerKey;
-    this.headerValue = props.headerValue;
+    this.state = {headerKey: props.headerKey, headerValue: props.headerValue};
   }
   changeKey(e) {
     let {idx, model} = this.props;
-    this.props.headerKey = e.target.value;
-    model.setHeader(idx, {key: e.target.value, value: this.props.headerValue});
+    this.state.headerKey = e.target.value;
+    model.setHeader(idx, {key: e.target.value, value: this.state.headerValue});
     model.didUpdate();
   }
   changeValue(e) {
     let {idx, model} = this.props;
-    this.props.headerValue = e.target.value;
-    model.setHeader(idx, {key: this.props.headerKey, value: e.target.value});
+    this.state.headerValue = e.target.value;
+    model.setHeader(idx, {key: this.state.headerKey, value: e.target.value});
     model.didUpdate();
   }
   deleteHeader() {
