@@ -53,12 +53,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
       const [orgId] = cookie.value.split("!");
       const orderedDomains = ["salesforce.com", "cloudforce.com", "salesforce.mil", "cloudforce.mil", "sfcrmproducts.cn", "force.com", "salesforce-setup.com", "visualforce.com", "sfcrmapps.cn", "force.mil", "visualforce.mil", "crmforce.mil"];
-
-      orderedDomains.forEach(currentDomain => {
-        chrome.cookies.getAll({name: "sid", domain: currentDomain, secure: true, storeId: sender.tab.cookieStoreId}, cookies => {
-          sendResponse(cookies.filter(c => c.value.startsWith(orgId + "!")).map(c => ({key: c.value, hostname: c.domain})));
-        });
-      });
+      orderedDomains.splice(orderedDomains.indexOf(request.sfHost), 1);
+      orderedDomains.unshift(request.sfHost);
+      let cookiesFullList = [];
+      let i = 0;
+      //Promise all do not worked here so just wait for all return with index.
+      orderedDomains.forEach(currentDomain => chrome.cookies.getAll({name: "sid", domain: currentDomain, secure: true, storeId: sender.tab.cookieStoreId}, cookies => {
+        cookiesFullList.push(...cookies);
+        i++;
+        if (i === orderedDomains.length) {
+          cookiesFullList = cookiesFullList.filter(c => c.value.startsWith(orgId + "!"));
+          sendResponse(cookiesFullList.map(c => ({key: c.value, hostname: c.domain})));
+        }
+      })
+      );
     });
     return true; // Tell Chrome that we want to call sendResponse asynchronously.
   }

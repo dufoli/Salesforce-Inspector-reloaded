@@ -42,7 +42,7 @@ export let sfConn = {
     }
   },
 
-  async rest(url, {logErrors = true, method = "GET", api = "normal", body = undefined, bodyType = "json", responseType = "json", headers = {}, progressHandler = null, withoutCache = false} = {}) {
+  async rest(url, {logErrors = true, method = "GET", api = "normal", body = undefined, bodyType = "json", responseType = "json", headers = {}, progressHandler = null, withoutCache = false, badToken= []} = {}) {
     if (!this.instanceHostname) {
       throw new Error("Instance Hostname not found");
     }
@@ -117,17 +117,16 @@ export let sfConn = {
       let oldToken = localStorage.getItem(this.instanceHostname + ACCESS_TOKEN);
       if (oldToken){
         sessionError = error;
+        badToken.push(oldToken);
         let cookies = await new Promise(resolve =>
           chrome.runtime.sendMessage({message: "getAllSessions", sfHost: this.instanceHostname}, resolve));
         if (cookies && cookies.length > 0) {
-          //first new token
-          //potentially 2 old tokens so not perfect
-          let message = cookies.find(c => c.key && c.key != oldToken);
+          let message = cookies.find(c => c.key && !badToken.includes(c.key));
           if (message) {
             this.instanceHostname = getMyDomain(message.hostname);
             this.sessionId = message.key;
             localStorage.setItem(this.instanceHostname + ACCESS_TOKEN, message.key);
-            return await this.rest(url, {logErrors, method, api, body, bodyType, responseType, headers, progressHandler, withoutCache: true});
+            return await this.rest(url, {logErrors, method, api, body, bodyType, responseType, headers, progressHandler, withoutCache: true, badToken});
           }
         }
         showInvalidTokenBanner();
